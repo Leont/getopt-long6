@@ -1,0 +1,12 @@
+{
+    "name" : "Getopt::Long",
+    "version" : "0.0.1",
+    "description" : "A powerful getopt implementation",
+    "provides" : {
+        "Getopt::Long"       : "lib/Getopt/Long.pm"
+    },
+    "author" : "Leon Timmermans",
+    "depends" : [ ],
+    "test-depends" : [ ],
+    "source-url" : "https://github.com/Leont/getopt-long6.git"
+}
