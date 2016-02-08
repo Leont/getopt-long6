@@ -3,27 +3,26 @@ use v6;
 unit class Getopt::Long;
 
 role Parser {
-	has Str:D $.name is required;
-	has Str:D @.aliases = ();
-	method takes-argument(--> Bool) { ... }
-	method names() {
-		return ($!name, |@!aliases);
-	}
+	has Str:D @.names is required;
+		method takes-argument(--> Bool:D) { ... }
 	method parse($raw, $others) { ... }
 }
 
 class BooleanParser does Parser {
 	has Bool $.negatable;
-	method takes-argument(--> Bool) {
+	method takes-argument(--> Bool:D) {
 		return False;
 	}
-	method parse($raw, $others) {
-		my @names = $.names;
-		if / ^ @names $/ {
+	method parse(Str $raw, $) {
+		my @names = self.names;
+		if $raw ~~ / ^ @names $ / {
 			return True;
 		}
-		elsif $!negatable && / ^ 'no' '-'? @names $/ {
+		elsif $!negatable && $raw ~~ / ^ 'no' '-'? @names $/ {
 			return False
+		}
+		else {
+			die "$raw can't match boolean {@names}?";
 		}
 	}
 }
@@ -32,9 +31,9 @@ class ArgumentedParser does Parser {
 	method takes-argument(--> Bool) {
 		return True;
 	}
-	method parse($raw, $others) {
-		my $name = $!name;
-		if $raw ~~ $!name {
+	method parse(Str:D $raw, Array:D $others) {
+		my @names = self.names;
+		if $raw ~~ / ^ @names $ / {
 			if $others.elems {
 				return $others.shift;
 			}
@@ -42,49 +41,17 @@ class ArgumentedParser does Parser {
 				die "Expected an argument";
 			}
 		}
-		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
+		elsif $raw ~~ / ^ @names '=' $<value>=[.*] / -> $/ {
 			return $<value>;
 		}
 		else {
-			die "$raw can't match $name?";
-		}
-	}
-}
-
-class CountParser does Parser {
-	method takes-argument(--> Bool) {
-		return False;
-	}
-	method parse($raw, $others) {
-	}
-}
-
-class MaybeParser does Parser {
-	has $.default;
-	method takes-argument(--> Bool) {
-		return True;
-	}
-	method parse($raw, $others) {
-		my $name = $!name;
-		if $raw ~~ $!name {
-			if $others.elems {
-				return $others.shift;
-			}
-			else {
-				return $!default;
-			}
-		}
-		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
-			return $<value>;
-		}
-		else {
-			die "$raw can't match $name?";
+			die "$raw can't match argument {@names.perl}?";
 		}
 	}
 }
 
 role Converter {
-	method convert() { ... }
+	method convert($) { ... }
 }
 
 class NullConverter does Converter {
@@ -94,157 +61,164 @@ class NullConverter does Converter {
 }
 
 class IntConverter does Converter {
-	method convert(Any:D $value) {
+	method convert(Str:D $value) {
 		return $value.Int;
 	}
 }
-
-role Storer {
-	method store($value) { ... }
-}
-
-role Gatherer {
-	method storage-for($name) { ... }
-}
-
-class CaptureStorer does Storer {
-	has Capture:D $.capture is required;
-	method store($value) {
-		|$!capture = $value;
+class MaybeIntConverter does Converter {
+	proto method convert(Str:D) { * }
+	multi method convert(Str:D $value) {
+		return $value;
 	}
-}
-
-class CaptureGatherer does Gatherer {
-	has Capture:D $.capture is required;
-	method storage-for($name) {
-		return CaptureStorer.new(:$!capture):
-	}
-}
-
-class HashStorer does Storer {
-	has Hash:D $.hash is required;
-	has Str:D $.key is required;
-	method store($value) {
-		$!hash{$!key} = $value;
-	}
-}
-
-class HashGatherer does Gatherer {
-	has Hash:D $.hash is required;
-	method storage-for($key) {
-		return HashStorer.new(:$!hash, :$key);
+	multi method convert(Str:D $value where / ^ '-'? \d+ $/) {
+		return IntStr($value.Int, $value);
 	}
 }
 
 role Multiplexer {
-	has Converter:D $.converter = NullConverter.new;
-	method store($value) { ... }
+	has Str:D $.key is required;
+	has Converter:_ $.converter = NullConverter;
+	has Any:U $.type = Any;
+	method store($value, $hash) { ... }
 }
 
 class Monoplexer does Multiplexer {
-	has Storer:D $.storer is required;
-	method store($value) {
-		$!storer.store($!converter.convert($value));
+	method store(Any:D $value, Hash:D $hash) {
+		$hash{$!key} = $!converter.convert($value);
 	}
 }
 
 class Arrayplexer does Multiplexer {
-	has Array $.array = Array.new;
-	method store(Any:D $value) {
-		$!array.push($!converter.convert($value));
+	method store(Any:D $value, Hash:D $hash) {
+		$hash{$!key} //= Array[$!type].new;
+		$hash{$!key}.push($!converter.convert($value));
 	}
 }
 
-class HashPlexer does Multiplexer {
-	has Hash $.hash = Hash.new;
-	method store(Any:D $pair) {
+class Hashplexer does Multiplexer {
+	method store(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
-		$!hash{$key} = $!converter.convert($value);
+		$hash{$!key} //= Hash[$!type].new;
+		$hash{$!key}{$key} = $!converter.convert($value);
 	}
 }
 
 class Option {
-	has Parser:D $.parser is required handles <name names takes-argument>;
+	has Parser:D $.parser is required handles <names takes-argument>;
 	has Multiplexer:D $.multiplexer is required;
-	method match(Str:D $raw, $args) {
-		my $value = $!parser.parse($raw, $args);
-		$!multiplexer.store($value);
+	method match(Str:D $raw, Any:D $arg, Hash:D $hash) {
+		$!multiplexer.store($!parser.parse($raw, $arg), $hash);
 	}
 }
 
-has Bool:D $.gnu-style = True;
-has Bool:D $.permute = False;
-enum Storage <StoreScalar StoreArray StoreHash>;
+has Bool:D $.gnu-style is required;
+has Bool:D $.permute is required;
+has Option:D %!options is required;
 
-multi parse-option(Str $pattern where rx/ ^ $<name>=[\w+] $<negatable>=['!'?] $ /, Gatherer $gatherer) {
-	my $storer = $gatherer.storage-for($<name>);
+submethod BUILD(:$!gnu-style, :$!permute, :%!options) { }
+
+my regex names {
+	[ $<name>=[\w+] ]+ % '|'
+	{ make @<name>».Str.list }
+}
+multi parse-option(Str $pattern where rx/ ^ <names> $<negatable>=['!'?] $ /) {
 	return Option.new(
-		parser => BooleanParser.new(:name($<name>), :negatable(?$<negatable>)),
-		multiplexer => Monoplexer.new(:$storer, :converter(NullConverter.new)),
+		parser => BooleanParser.new(:names($<names>.made), :negatable(?$<negatable>)),
+		multiplexer => Monoplexer.new(:key($<names>.made[0])),
 	);
 }
 
-multi storage-for('%', Storer :$storer, :$converter) {
-}
-multi storage-for('@', Storer :$storer, :$converter) {
-	my $plexer = Arrayplexer.new();
-	$storer.store($plexer.array);
-	return $plexer;
-}
-multi storage-for(Any $foo, Storer :$storer, :$converter) {
-	warn $foo.perl;
-	return Monoplexer.new(:$storer, :$converter);
-}
-multi parse-option(Str $pattern where rx/ ^ $<name>=[\w+] '=' $<type>=<[si]> $<class>=[<[%@]>?] /, Gatherer $gatherer) {
-	my $parser = ArgumentedParser.new(:name(~$<name>));
-	my $storer = $gatherer.storage-for($parser.name);
-	my $converter = $<type> && $<type> eq 'i' ?? IntConverter.new !! NullConverter.new;
-	my $multiplexer = storage-for(~$<class>, :$storer, :$converter);
+my %multiplexer-for = (
+	'%' => Hashplexer,
+	'@' => Arrayplexer,
+	'' => Monoplexer,
+);
+
+multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
+	my $parser = ArgumentedParser.new(:names($<names>.made));
+	my ($converter, $type) = $<type> && $<type> eq 'i' ?? (IntConverter, Int) !! (NullConverter, Str);
+	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :$converter, :$type);
 	return Option.new(:$parser, :$multiplexer);
 }
-multi parse-option(Str $pattern where rx/ ^ $<name>=[\w+] '+' $ /, Gatherer $gatherer) {
 
-}
-
-multi parse-option(Str $pattern, Gatherer $gatherer) {
+multi parse-option(Str $pattern) {
 	die "Invalid pattern '$pattern'";
 }
 
-multi method getopt(@args, *@patterns) {
-	my (%options, %hash);
-	for @patterns -> $pattern {
-		my $storer = HashGatherer.new(:hash(%hash));
-		my Option $option = parse-option($pattern, $storer);
-		%options{$option.name} = $option;
-	}
-	my @list = self!getopt(@args, %options);
-	return \(|@list, |%hash);
+my %converter-for{Any:U} = (
+	(Int) => IntConverter,
+	(Str) => NullConverter,
+	(Any) => MaybeIntConverter,
+);
+
+multi parse-parameter(@names ($key, *@), '$', Any:U $type) {
+	my $parser = ArgumentedParser.new(:@names);
+	my $converter = %converter-for{$type};
+	my $multiplexer = Monoplexer.new(:$key);
+	return Option.new(:$parser, :$multiplexer);
 }
-multi method getopt(@args, *%patterns) {
-	my %options;
-	for %patterns.kv -> $pattern, $capture {
-		my $storer = CaptureGatherer.new(:$capture);
-		my Option $option = parse-option($pattern, $storer);
-		%options{$option.name} = $option;
-	}
-	self!getopt(@args, %options);
+multi parse-parameter(@names ($key, *@), '$', Bool) {
+	my $parser = BooleanParser.new(:@names, :negatable);
+	my $multiplexer = Monoplexer.new(:$key);
+	return Option.new(:$parser, :$multiplexer);
+}
+multi parse-parameter(@names ($key, *@), '@';; Any:U $type) {
+	my $parser = ArgumentedParser.new(:@names);
+	my $converter = %converter-for{$type.of};
+	my $multiplexer = Arrayplexer.new(:$key, :$converter, :type($type.of));
+	return Option.new(:$parser, :$multiplexer);
+}
+multi parse-parameter(@names ($key, *@), '%';; Any:U $type) {
+	my $parser = ArgumentedParser.new(:@names);
+	my $converter = %converter-for{$type.of};
+	my $multiplexer = Hashplexer.new(:$key, :$converter, :type($type.of));
+	return Option.new(:$parser, :$multiplexer);
 }
 
-method !getopt(@argv, %options) {
+multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
+	my %options;
+	if $main.multi {
+		for $main.candidates -> $candidates {
+			for $main.signature.params.grep(*.named) -> $param {
+				my Option $option = parse-parameter($param.named_names, $param.type);
+				my @doubles = $option.names.grep: -> $name { %options{$name}:exists && %options{$name} !eqv $option };
+				die "Can't merge arguments {@doubles}" if @doubles;
+				%options{$option.names} = $option xx $option.names.elems;
+			}
+		}
+	}
+	else {
+		for $main.signature.params.grep(*.named) -> $param {
+			my Option $option = parse-parameter($param.named_names, $param.sigil, $param.type);
+			%options{$option.names} = $option xx $option.names.elems;
+		}
+	}
+	return self.bless(:$gnu-style, :$permute, :%options);
+}
+multi method new(*@patterns, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
+	my %options;
+	for @patterns -> $pattern {
+		my Option $option = parse-option($pattern);
+		%options{$option.names} = $option xx $option.names.elems;
+	}
+	return self.bless(:$gnu-style, :$permute, :%options);
+}
+
+method get-options(@argv) {
 	my @args = @argv;
-	my @ret;
+	my (@list, %hash);
 	while @args {
 		my $head = @args.shift;
 		if $head ~~ / ^ '--' $<name>=[\w+] $ / -> $/ {
-			if %options{$<name>} -> $option {
-				$option.match(~$<name>, @args);
+			if %!options{$<name>} -> $option {
+				$option.match(~$<name>, @args, %hash);
 			}
 			else {
-				die "Unknown option $<name>: " ~ %options.perl;
+				die "Unknown option $<name>: " ~ %!options.perl;
 			}
 		}
 		elsif $!gnu-style && $head ~~ / ^ '--' $<value>=[ $<name>=[\w+] '=' .* ] / -> $/ {
-			if %options{$<name>} -> $option {
+			if %!options{$<name>} -> $option {
 				die "Option {$option.name} doesn't take arguments" unless $option.takes-argument;
 				$option.match(~$<value>, @args);
 			}
@@ -254,13 +228,13 @@ method !getopt(@argv, %options) {
 		}
 		else {
 			if $!permute {
-				@ret.push: $head;
+				@list.push: $head;
 			}
 			else {
-				@ret.append: $head, |@args;
+				@list.append: $head, |@args;
 				last;
 			}
 		}
 	}
-	return @ret;
+	return \(|@list, |%hash);
 }
