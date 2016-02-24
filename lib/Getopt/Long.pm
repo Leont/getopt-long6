@@ -214,7 +214,7 @@ method get-options(@argv) {
 				$option.match(~$<name>, @args, %hash);
 			}
 			else {
-				die "Unknown option $<name>: " ~ %!options.perl;
+				die "Unknown option $<name>: ";
 			}
 		}
 		elsif $!gnu-style && $head ~~ / ^ '--' $<value>=[ $<name>=[\w+] '=' .* ] / -> $/ {
