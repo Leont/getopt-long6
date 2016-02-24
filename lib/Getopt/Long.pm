@@ -238,3 +238,9 @@ method get-options(@argv) {
 	}
 	return \(|@list, |%hash);
 }
+
+our sub MAIN_HELPER($retval = 0) is export {
+	my &m = callframe(1).my<&MAIN>;
+	return $retval unless &m;
+	m(|Getopt::Long.new(&m).get-options(@*ARGS));
+}
