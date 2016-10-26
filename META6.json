@@ -1,4 +1,5 @@
 {
+    "perl" : "6.*",
     "name" : "Getopt::Long",
     "version" : "0.0.1",
     "description" : "A powerful getopt implementation",
