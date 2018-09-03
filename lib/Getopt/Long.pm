@@ -42,7 +42,7 @@ class ArgumentedParser does Parser {
 			}
 		}
 		elsif $raw ~~ / ^ @names '=' $<value>=[.*] / -> $/ {
-			return $<value>;
+			return ~$<value>;
 		}
 		else {
 			die "$raw can't match argument {@names.perl}?";
@@ -220,7 +220,7 @@ method get-options(@argv) {
 		elsif $!gnu-style && $head ~~ / ^ '--' $<value>=[ $<name>=[\w+] '=' .* ] / -> $/ {
 			if %!options{$<name>} -> $option {
 				die "Option {$option.name} doesn't take arguments" unless $option.takes-argument;
-				$option.match(~$<value>, @args);
+				$option.match(~$<value>, @args, %hash);
 			}
 			else {
 				die "Unknown option $<name>";
