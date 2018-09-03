@@ -4,12 +4,12 @@ unit class Getopt::Long;
 
 role Parser {
 	has Str:D @.names is required;
-		method takes-argument(--> Bool:D) { ... }
+	method takes-argument(--> Bool:D) { ... }
 	method parse($raw, $others) { ... }
 }
 
 class BooleanParser does Parser {
-	has Bool $.negatable;
+	has Bool:D $.negatable is required;
 	method takes-argument(--> Bool:D) {
 		return False;
 	}
