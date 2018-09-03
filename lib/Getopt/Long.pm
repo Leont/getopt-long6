@@ -3,7 +3,7 @@ use v6;
 unit class Getopt::Long;
 
 role Parser {
-	has Str:D @.names is required;
+	has Str:D $.name is required;
 	method takes-argument(--> Bool:D) { ... }
 	method parse($raw, $others) { ... }
 }
@@ -14,15 +14,15 @@ class BooleanParser does Parser {
 		return False;
 	}
 	method parse(Str $raw, $) {
-		my @names = self.names;
-		if $raw ~~ / ^ @names $ / {
+		my $name = $!name;
+		if $raw eq $!name {
 			return True;
 		}
-		elsif $!negatable && $raw ~~ / ^ 'no' '-'? @names $/ {
+		elsif $!negatable && $raw ~~ / ^ 'no' '-'? $name $/ {
 			return False
 		}
 		else {
-			die "$raw can't match boolean {@names}?";
+			die "$raw can't match boolean {$name}?";
 		}
 	}
 }
@@ -32,8 +32,8 @@ class ArgumentedParser does Parser {
 		return True;
 	}
 	method parse(Str:D $raw, Array:D $others) {
-		my @names = self.names;
-		if $raw ~~ / ^ @names $ / {
+		my $name = self.name;
+		if $raw eq $!name {
 			if $others.elems {
 				return $others.shift;
 			}
@@ -41,11 +41,11 @@ class ArgumentedParser does Parser {
 				die "Expected an argument";
 			}
 		}
-		elsif $raw ~~ / ^ @names '=' $<value>=[.*] / -> $/ {
+		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
 			return ~$<value>;
 		}
 		else {
-			die "$raw can't match argument {@names.perl}?";
+			die "$raw can't match argument {$name.perl}?";
 		}
 	}
 }
@@ -104,7 +104,7 @@ class Hashplexer does Multiplexer {
 }
 
 class Option {
-	has Parser:D $.parser is required handles <names takes-argument>;
+	has Parser:D $.parser is required handles <name takes-argument>;
 	has Multiplexer:D $.multiplexer is required;
 	method match(Str:D $raw, Any:D $arg, Hash:D $hash) {
 		$!multiplexer.store($!parser.parse($raw, $arg), $hash);
@@ -122,10 +122,10 @@ my regex names {
 	{ make @<name>».Str.list }
 }
 multi parse-option(Str $pattern where rx/ ^ <names> $<negatable>=['!'?] $ /) {
-	return Option.new(
-		parser => BooleanParser.new(:names($<names>.made), :negatable(?$<negatable>)),
-		multiplexer => Monoplexer.new(:key($<names>.made[0])),
-	);
+	my $multiplexer = Monoplexer.new(:key($<names>.made[0]));
+	return $<names>.made.map: -> $name {
+		Option.new(:$multiplexer, parser => BooleanParser.new(:$name, :negatable(?$<negatable>)));
+	}
 }
 
 my %multiplexer-for = (
@@ -135,10 +135,11 @@ my %multiplexer-for = (
 );
 
 multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
-	my $parser = ArgumentedParser.new(:names($<names>.made));
-	my ($converter, $type) = $<type> && $<type> eq 'i' ?? (IntConverter, Int) !! (NullConverter, Str);
+	my ($converter, $type) = $<type> eq 'i' ?? (IntConverter, Int) !! (NullConverter, Str);
 	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :$converter, :$type);
-	return Option.new(:$parser, :$multiplexer);
+	$<names>.made.map: -> $name {
+		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
+	}
 }
 
 multi parse-option(Str $pattern) {
@@ -152,27 +153,30 @@ my %converter-for{Any:U} = (
 );
 
 multi parse-parameter(@names ($key, *@), '$', Any:U $type) {
-	my $parser = ArgumentedParser.new(:@names);
-	my $converter = %converter-for{$type};
-	my $multiplexer = Monoplexer.new(:$key);
-	return Option.new(:$parser, :$multiplexer);
+	my $multiplexer = Monoplexer.new(:$key, :converter(%converter-for{$type}));
+	return @names.map: -> $name {
+		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
+	}
 }
 multi parse-parameter(@names ($key, *@), '$', Bool) {
-	my $parser = BooleanParser.new(:@names, :negatable);
 	my $multiplexer = Monoplexer.new(:$key);
-	return Option.new(:$parser, :$multiplexer);
+	return @names.map: -> $name {
+		Option.new(:$multiplexer, parser => BooleanParser.new(:$name, :negatable));
+	};
 }
 multi parse-parameter(@names ($key, *@), '@';; Any:U $type) {
-	my $parser = ArgumentedParser.new(:@names);
 	my $converter = %converter-for{$type.of};
 	my $multiplexer = Arrayplexer.new(:$key, :$converter, :type($type.of));
-	return Option.new(:$parser, :$multiplexer);
+	return @names.map: -> $name {
+		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
+	}
 }
 multi parse-parameter(@names ($key, *@), '%';; Any:U $type) {
-	my $parser = ArgumentedParser.new(:@names);
 	my $converter = %converter-for{$type.of};
 	my $multiplexer = Hashplexer.new(:$key, :$converter, :type($type.of));
-	return Option.new(:$parser, :$multiplexer);
+	return @names.map: -> $name {
+		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
+	}
 }
 
 multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
@@ -180,17 +184,20 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 	if $main.multi {
 		for $main.candidates -> $candidates {
 			for $main.signature.params.grep(*.named) -> $param {
-				my Option $option = parse-parameter($param.named_names, $param.type);
-				my @doubles = $option.names.grep: -> $name { %options{$name}:exists && %options{$name} !eqv $option };
-				die "Can't merge arguments {@doubles}" if @doubles;
-				%options{$option.names} = $option xx $option.names.elems;
+				for parse-parameter($param.named_names, $param.sigil, $param.type) -> $option {
+					if %options{$option.name}:exists and %options{$option.name} !eqv $option {
+						die "Can't merge arguments for {$option.name}";
+					}
+					%options{$option.name} = $option;
+				}
 			}
 		}
 	}
 	else {
 		for $main.signature.params.grep(*.named) -> $param {
-			my Option $option = parse-parameter($param.named_names, $param.sigil, $param.type);
-			%options{$option.names} = $option xx $option.names.elems;
+			for parse-parameter($param.named_names, $param.sigil, $param.type) -> $option {
+				%options{$option.name} = $option;
+			}
 		}
 	}
 	return self.bless(:$gnu-style, :$permute, :%options);
@@ -198,8 +205,9 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 multi method new(*@patterns, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
 	my %options;
 	for @patterns -> $pattern {
-		my Option $option = parse-option($pattern);
-		%options{$option.names} = $option xx $option.names.elems;
+		for parse-option($pattern) -> $option {
+			%options{$option.name} = $option;
+		}
 	}
 	return self.bless(:$gnu-style, :$permute, :%options);
 }
