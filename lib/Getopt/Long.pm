@@ -1,5 +1,22 @@
 use v6;
 
+=pod
+
+=head1 SYNOPSIS
+
+    use Getopt::Long;
+
+    my $o = Getopt::Long.new(
+        'param=s%'
+    );
+    my $ret = $o.get-options(@*ARGS);
+    say $ret.{'param'}.hash;
+
+    # If invoked with --param foo=bar --param quux=name
+    # will give :foo('bar') :quux('val')
+ 
+=cut
+
 unit class Getopt::Long;
 
 role Parser {
