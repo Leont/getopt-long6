@@ -153,21 +153,12 @@ sub parse-parameter(Parameter $param) {
 
 multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
 	my %options;
-	if $main.multi {
-		for $main.candidates -> $candidates {
-			for $main.signature.params.grep(*.named) -> $param {
-				for parse-parameter($param) -> $option {
-					if %options{$option.name}:exists and %options{$option.name} !eqv $option {
-						die "Can't merge arguments for {$option.name}";
-					}
-					%options{$option.name} = $option;
-				}
-			}
-		}
-	}
-	else {
-		for $main.signature.params.grep(*.named) -> $param {
+	for $main.candidates -> $candidate {
+		for $candidate.signature.params.grep(*.named) -> $param {
 			for parse-parameter($param) -> $option {
+				if %options{$option.name}:exists and %options{$option.name} !eqv $option {
+					die "Can't merge arguments for {$option.name}";
+				}
 				%options{$option.name} = $option;
 			}
 		}
