@@ -2,29 +2,16 @@ use v6;
 
 unit class Getopt::Long;
 
-role Converter {
-	method convert($) { ... }
+my sub null-converter(Str:D $value) {
+	return $value;
 }
 
-class NullConverter does Converter {
-	method convert(Str:D $value) {
-		return $value;
-	}
+my sub int-converter(Str:D $value) {
+	return $value.Int;
 }
 
-class IntConverter does Converter {
-	method convert(Str:D $value) {
-		return $value.Int;
-	}
-}
-class MaybeIntConverter does Converter {
-	proto method convert(Str:D) { * }
-	multi method convert(Str:D $value) {
-		return $value;
-	}
-	multi method convert(Str:D $value where / ^ '-'? \d+ $/) {
-		return IntStr($value.Int, $value);
-	}
+my sub maybe-converter(Str:D $value) {
+	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
 }
 
 role Parser {
@@ -53,7 +40,7 @@ class BooleanParser does Parser {
 }
 
 class ArgumentedParser does Parser {
-	has Converter $.converter = NullConverter;
+	has Sub $.converter = &null-converter;
 	method takes-argument(--> Bool) {
 		return True;
 	}
@@ -61,14 +48,14 @@ class ArgumentedParser does Parser {
 		my $name = self.name;
 		if $raw eq $!name {
 			if $others.elems {
-				return $!converter.convert($others.shift);
+				return $!converter($others.shift);
 			}
 			else {
 				die "Expected an argument";
 			}
 		}
 		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
-			return $!converter.convert(~$<value>);
+			return $!converter(~$<value>);
 		}
 		else {
 			die "$raw can't match argument {$name.perl}?";
@@ -136,7 +123,7 @@ my %multiplexer-for = (
 );
 
 multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
-	my ($converter, $type) = $<type> eq 'i' ?? (IntConverter, Int) !! (NullConverter, Str);
+	my ($converter, $type) = $<type> eq 'i' ?? (&int-converter, Int) !! (&null-converter, Str);
 	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :$type);
 	$<names>.made.map: -> $name {
 		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name, :$converter));
@@ -148,15 +135,15 @@ multi parse-option(Str $pattern) {
 }
 
 my %converter-for{Any:U} = (
-	(Int) => IntConverter,
-	(Str) => NullConverter,
-	(Any) => MaybeIntConverter,
+	(Int) => &int-converter,
+	(Str) => &null-converter,
+	(Any) => &maybe-converter,
 );
 
 sub parse-parameter(Parameter $param) {
 	my ($key) = my @names = $param.named_names;
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
-	my $converter = %converter-for{$type} // NullConverter;
+	my $converter = %converter-for{$type} // &null-converter;
 	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$type);
 	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
 	return @names.map: -> $name {
