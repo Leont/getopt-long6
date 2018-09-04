@@ -9,7 +9,7 @@ role Parser {
 }
 
 class BooleanParser does Parser {
-	has Bool:D $.negatable is required;
+	has Bool:D $.negatable = True;
 	method takes-argument(--> Bool:D) {
 		return False;
 	}
@@ -131,7 +131,8 @@ multi parse-option(Str $pattern where rx/ ^ <names> $<negatable>=['!'?] $ /) {
 my %multiplexer-for = (
 	'%' => Hashplexer,
 	'@' => Arrayplexer,
-	'' => Monoplexer,
+	''  => Monoplexer,
+	'$' => Monoplexer,
 );
 
 multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
@@ -152,30 +153,14 @@ my %converter-for{Any:U} = (
 	(Any) => MaybeIntConverter,
 );
 
-multi parse-parameter(@names ($key, *@), '$', Any:U $type) {
-	my $multiplexer = Monoplexer.new(:$key, :converter(%converter-for{$type}));
+sub parse-parameter(Parameter $param) {
+	my ($key) = my @names = $param.named_names;
+	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
+	my $converter = %converter-for{$type} // NullConverter;
+	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$converter, :$type);
+	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
 	return @names.map: -> $name {
-		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
-	}
-}
-multi parse-parameter(@names ($key, *@), '$', Bool) {
-	my $multiplexer = Monoplexer.new(:$key);
-	return @names.map: -> $name {
-		Option.new(:$multiplexer, parser => BooleanParser.new(:$name, :negatable));
-	};
-}
-multi parse-parameter(@names ($key, *@), '@';; Any:U $type) {
-	my $converter = %converter-for{$type.of};
-	my $multiplexer = Arrayplexer.new(:$key, :$converter, :type($type.of));
-	return @names.map: -> $name {
-		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
-	}
-}
-multi parse-parameter(@names ($key, *@), '%';; Any:U $type) {
-	my $converter = %converter-for{$type.of};
-	my $multiplexer = Hashplexer.new(:$key, :$converter, :type($type.of));
-	return @names.map: -> $name {
-		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
+		Option.new(:$multiplexer, parser => $parser.new(:$name));
 	}
 }
 
@@ -184,7 +169,7 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 	if $main.multi {
 		for $main.candidates -> $candidates {
 			for $main.signature.params.grep(*.named) -> $param {
-				for parse-parameter($param.named_names, $param.sigil, $param.type) -> $option {
+				for parse-parameter($param) -> $option {
 					if %options{$option.name}:exists and %options{$option.name} !eqv $option {
 						die "Can't merge arguments for {$option.name}";
 					}
@@ -195,7 +180,7 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 	}
 	else {
 		for $main.signature.params.grep(*.named) -> $param {
-			for parse-parameter($param.named_names, $param.sigil, $param.type) -> $option {
+			for parse-parameter($param) -> $option {
 				%options{$option.name} = $option;
 			}
 		}
