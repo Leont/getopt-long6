@@ -2,6 +2,31 @@ use v6;
 
 unit class Getopt::Long;
 
+role Converter {
+	method convert($) { ... }
+}
+
+class NullConverter does Converter {
+	method convert(Str:D $value) {
+		return $value;
+	}
+}
+
+class IntConverter does Converter {
+	method convert(Str:D $value) {
+		return $value.Int;
+	}
+}
+class MaybeIntConverter does Converter {
+	proto method convert(Str:D) { * }
+	multi method convert(Str:D $value) {
+		return $value;
+	}
+	multi method convert(Str:D $value where / ^ '-'? \d+ $/) {
+		return IntStr($value.Int, $value);
+	}
+}
+
 role Parser {
 	has Str:D $.name is required;
 	method takes-argument(--> Bool:D) { ... }
@@ -28,6 +53,7 @@ class BooleanParser does Parser {
 }
 
 class ArgumentedParser does Parser {
+	has Converter $.converter = NullConverter;
 	method takes-argument(--> Bool) {
 		return True;
 	}
@@ -35,14 +61,14 @@ class ArgumentedParser does Parser {
 		my $name = self.name;
 		if $raw eq $!name {
 			if $others.elems {
-				return $others.shift;
+				return $!converter.convert($others.shift);
 			}
 			else {
 				die "Expected an argument";
 			}
 		}
 		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
-			return ~$<value>;
+			return $!converter.convert(~$<value>);
 		}
 		else {
 			die "$raw can't match argument {$name.perl}?";
@@ -50,48 +76,22 @@ class ArgumentedParser does Parser {
 	}
 }
 
-role Converter {
-	method convert($) { ... }
-}
-
-class NullConverter does Converter {
-	method convert(Any:D $value) {
-		return $value;
-	}
-}
-
-class IntConverter does Converter {
-	method convert(Str:D $value) {
-		return $value.Int;
-	}
-}
-class MaybeIntConverter does Converter {
-	proto method convert(Str:D) { * }
-	multi method convert(Str:D $value) {
-		return $value;
-	}
-	multi method convert(Str:D $value where / ^ '-'? \d+ $/) {
-		return IntStr($value.Int, $value);
-	}
-}
-
 role Multiplexer {
 	has Str:D $.key is required;
-	has Converter:_ $.converter = NullConverter;
 	has Any:U $.type = Any;
 	method store($value, $hash) { ... }
 }
 
 class Monoplexer does Multiplexer {
 	method store(Any:D $value, Hash:D $hash) {
-		$hash{$!key} = $!converter.convert($value);
+		$hash{$!key} = $value;
 	}
 }
 
 class Arrayplexer does Multiplexer {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} //= Array[$!type].new;
-		$hash{$!key}.push($!converter.convert($value));
+		$hash{$!key}.push($value);
 	}
 }
 
@@ -99,7 +99,7 @@ class Hashplexer does Multiplexer {
 	method store(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
 		$hash{$!key} //= Hash[$!type].new;
-		$hash{$!key}{$key} = $!converter.convert($value);
+		$hash{$!key}{$key} = $value;
 	}
 }
 
@@ -137,9 +137,9 @@ my %multiplexer-for = (
 
 multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
 	my ($converter, $type) = $<type> eq 'i' ?? (IntConverter, Int) !! (NullConverter, Str);
-	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :$converter, :$type);
+	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :$type);
 	$<names>.made.map: -> $name {
-		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name));
+		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name, :$converter));
 	}
 }
 
@@ -157,10 +157,10 @@ sub parse-parameter(Parameter $param) {
 	my ($key) = my @names = $param.named_names;
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
 	my $converter = %converter-for{$type} // NullConverter;
-	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$converter, :$type);
+	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$type);
 	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
 	return @names.map: -> $name {
-		Option.new(:$multiplexer, parser => $parser.new(:$name));
+		Option.new(:$multiplexer, parser => $parser.new(:$name, :$converter));
 	}
 }
 
