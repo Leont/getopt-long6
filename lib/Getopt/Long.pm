@@ -18,6 +18,7 @@ role Parser {
 	has Str:D $.name is required;
 	method takes-argument(--> Bool:D) { ... }
 	method parse($raw, $others) { ... }
+	method parse-single($raw, $others) { ... }
 }
 
 class BooleanParser does Parser {
@@ -25,7 +26,7 @@ class BooleanParser does Parser {
 	method takes-argument(--> Bool:D) {
 		return False;
 	}
-	method parse(Str $raw, $) {
+	method parse(Str $raw, Array:D $) {
 		my $name = $!name;
 		if $raw eq $!name {
 			return True;
@@ -35,6 +36,14 @@ class BooleanParser does Parser {
 		}
 		else {
 			die "$raw can't match boolean {$name}?";
+		}
+	}
+	method parse-single (Str $raw, $) {
+		if $raw eq $!name {
+			return True;
+		}
+		else {
+			die "$raw can't match boolean $!name?";
 		}
 	}
 }
@@ -55,6 +64,23 @@ class ArgumentedParser does Parser {
 			}
 		}
 		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
+			return $!converter(~$<value>);
+		}
+		else {
+			die "$raw can't match argument {$name.perl}?";
+		}
+	}
+	method parse-single(Str:D $raw, Array:D $others) {
+		my $name = self.name;
+		if $raw eq $!name {
+			if $others.elems {
+				return $!converter($others.shift);
+			}
+			else {
+				die "Expected an argument for $name";
+			}
+		}
+		elsif $raw ~~ / ^ $name $<value>=[.*] $ / -> $/ {
 			return $!converter(~$<value>);
 		}
 		else {
@@ -95,6 +121,9 @@ class Option {
 	has Multiplexer:D $.multiplexer is required;
 	method match(Str:D $raw, Any:D $arg, Hash:D $hash) {
 		$!multiplexer.store($!parser.parse($raw, $arg), $hash);
+	}
+	method match-single(Str:D $raw, Any:D $arg, Hash:D $hash) {
+		$!multiplexer.store($!parser.parse-single($raw, $arg), $hash);
 	}
 }
 
@@ -195,6 +224,20 @@ method get-options(@argv) {
 			}
 			else {
 				die "Unknown option $<name>";
+			}
+		}
+		elsif $head ~~ / ^ '-' $<values>=[\w+] $ / -> $/ {
+			my @values = $<values>.Str.comb;
+			my %options = @values.map: -> $value { $value => %!options{$value} };
+			if all(%options.values).defined && none(%options.values).takes-argument {
+				for %options.kv -> $value, $option {
+					$option.match-single($value, @args, %hash);
+				}
+			}
+			else {
+				if %!options{@values[0]} -> $option {
+					$option.match-single(~$<values>, @args, %hash);
+				}
 			}
 		}
 		else {
