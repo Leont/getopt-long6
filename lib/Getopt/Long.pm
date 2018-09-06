@@ -10,6 +10,10 @@ my sub int-converter(Str:D $value --> Int) {
 	return $value.Int;
 }
 
+my sub rat-converter(Str:D $value --> Rat) {
+	return $value.Rat;
+}
+
 my sub maybe-converter(Str:D $value --> Any) {
 	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
 }
@@ -154,9 +158,10 @@ my %multiplexer-for = (
 my %converter-for-format = (
 	i => &int-converter,
 	s => &null-converter,
+	f => &rat-converter,
 );
 
-multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
+multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[sif]> $<class>=[<[%@]>?] /) {
 	my $converter = %converter-for-format{$<type>};
 	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :type($converter.returns));
 	$<names>.made.map: -> $name {
@@ -170,6 +175,7 @@ multi parse-option(Str $pattern) {
 
 my %converter-for-type{Any:U} = (
 	(Int) => &int-converter,
+	(Rat) => &rat-converter,
 	(Str) => &null-converter,
 	(Any) => &maybe-converter,
 );

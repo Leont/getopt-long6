@@ -26,4 +26,7 @@ dies-ok( { main(|$capture4) }, 'Calling main (1) works');
 my $capture5 = $getopt.get-options(<--bar -- -a>);
 is-deeply($capture5, \('-a', :bar), '"--" terminates argument handling');
 
+my $capture6 = Getopt::Long.new('quz=f').get-options([<--quz=2.5>]);
+is-deeply($capture6, \(:quz(2.5)), 'Numeric arguments work');
+
 done-testing;
