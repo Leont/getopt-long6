@@ -2,15 +2,15 @@ use v6;
 
 unit class Getopt::Long;
 
-my sub null-converter(Str:D $value) {
+my sub null-converter(Str:D $value --> Str) {
 	return $value;
 }
 
-my sub int-converter(Str:D $value) {
+my sub int-converter(Str:D $value --> Int) {
 	return $value.Int;
 }
 
-my sub maybe-converter(Str:D $value) {
+my sub maybe-converter(Str:D $value --> Any) {
 	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
 }
 
@@ -151,9 +151,14 @@ my %multiplexer-for = (
 	'$' => Monoplexer,
 );
 
+my %converter-for-format = (
+	i => &int-converter,
+	s => &null-converter,
+);
+
 multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[si]> $<class>=[<[%@]>?] /) {
-	my ($converter, $type) = $<type> eq 'i' ?? (&int-converter, Int) !! (&null-converter, Str);
-	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :$type);
+	my $converter = %converter-for-format{$<type>};
+	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :type($converter.returns));
 	$<names>.made.map: -> $name {
 		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name, :$converter));
 	}
@@ -163,7 +168,7 @@ multi parse-option(Str $pattern) {
 	die "Invalid pattern '$pattern'";
 }
 
-my %converter-for{Any:U} = (
+my %converter-for-type{Any:U} = (
 	(Int) => &int-converter,
 	(Str) => &null-converter,
 	(Any) => &maybe-converter,
@@ -172,7 +177,7 @@ my %converter-for{Any:U} = (
 sub parse-parameter(Parameter $param) {
 	my ($key) = my @names = $param.named_names;
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
-	my $converter = %converter-for{$type} // &null-converter;
+	my $converter = %converter-for-type{$type} // &null-converter;
 	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$type);
 	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
 	return @names.map: -> $name {
