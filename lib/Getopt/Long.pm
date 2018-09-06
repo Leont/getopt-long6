@@ -240,6 +240,10 @@ method get-options(@argv) {
 				}
 			}
 		}
+		elsif $head eq '--' {
+			@list.append: |@args;
+			last;
+		}
 		else {
 			if $!permute {
 				@list.push: $head;

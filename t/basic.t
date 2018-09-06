@@ -23,4 +23,7 @@ is-deeply($capture3, \(:a, :c, :foo(Array[Str].new(<bar3>))), 'Short options wor
 my $capture4 = $getopt.get-options(<--foo bar --fooo bar2 -f bar3 -ac --bar baz>);
 dies-ok( { main(|$capture4) }, 'Calling main (1) works');
 
+my $capture5 = $getopt.get-options(<--bar -- -a>);
+is-deeply($capture5, \('-a', :bar), '"--" terminates argument handling');
+
 done-testing;
