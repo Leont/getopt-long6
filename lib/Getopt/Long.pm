@@ -93,6 +93,48 @@ class ArgumentedParser does Parser {
 	}
 }
 
+class MaybeArgumentedParser does Parser {
+	has Sub $.converter = &null-converter;
+	has Any $.default is required;
+	method takes-argument(--> Bool) {
+		return True;
+	}
+	method parse(Str:D $raw, Array:D $others) {
+		my $name = self.name;
+		if $raw eq $!name {
+			if $others.elems && !$others[0].starts-with('-') {
+				return $!converter($others.shift);
+			}
+			else {
+				return $!default;
+			}
+		}
+		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
+			return $!converter(~$<value>);
+		}
+		else {
+			die "$raw can't match argument {$name.perl}?";
+		}
+	}
+	method parse-single(Str:D $raw, Array:D $others) {
+		my $name = self.name;
+		if $raw eq $!name {
+			if $others.elems && !$others[0].starts-with('-') {
+				return $!converter($others.shift);
+			}
+			else {
+				return $!default;
+			}
+		}
+		elsif $raw ~~ / ^ $name $<value>=[.*] $ / -> $/ {
+			return $!converter(~$<value>);
+		}
+		else {
+			die "$raw can't match argument {$name.perl}?";
+		}
+	}
+}
+
 role Multiplexer {
 	has Str:D $.key is required;
 	has Any:U $.type = Any;
