@@ -10,6 +10,41 @@ my sub int-converter(Str:D $value --> Int) {
 	return $value.Int;
 }
 
+my sub extended-int-converter(Str:D $value --> Int) {
+	grammar Extended {
+		token TOP {
+			<sign> <bulk>
+			{ make $<sign>.ast * $<bulk>.ast; }
+		}
+
+		token sign {
+			$<char>=<[+-]>?
+			{ make ($<char> eq '-' ?? -1 !! 1) }
+		}
+		token bulk {
+			[ <hex> | <octal> | <binary> || <fallback> ]
+			{ make $/.values[0].ast }
+		}
+		token hex {
+			:i '0x' $<num>=[<[0..9A..F]>+]
+			{ make :16(~$<num>) }
+		}
+		token octal {
+			'0' $<num>=[<[0..7]>+]
+			{ make :8(~$<num>) }
+		}
+		token binary {
+			:i '0b' $<num>=[<[01]>+]
+			{ make :2(~$<num>) }
+		}
+		token fallback {
+			\d+
+			{ make $/.Str.Int }
+		}
+	}
+	return Extended.parse($value).ast // Int;
+}
+
 my sub rat-converter(Str:D $value --> Rat) {
 	return $value.Rat;
 }
@@ -229,10 +264,11 @@ my grammar Argument {
 		i => &int-converter,
 		s => &null-converter,
 		f => &rat-converter,
+		o => &extended-int-converter,
 	);
 
 	token type {
-		<[sif]>
+		<[sifo]>
 		{ make %converter-for-format{$/} }
 	}
 

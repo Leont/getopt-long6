@@ -58,4 +58,15 @@ is-deeply($capture12, \(:foo(1)), 'Colon singles fine');
 my $capture13 = $getopt5.get-options(<--foo 2 --foo>);
 is-deeply($capture13, \(:foo(3)), 'Colon counter adds up');
 
+my $getopt6 = Getopt::Long.new('bar=o');
+
+my $capture14 = $getopt6.get-options(<--bar 012>);
+is-deeply($capture14, \(:bar(10)), 'Parsing octal argument with "o"');
+
+my $capture15 = $getopt6.get-options(<--bar -012>);
+is-deeply($capture15, \(:bar(-10)), 'Parsing negative octal argument with "o"');
+
+my $capture16 = $getopt6.get-options(<--bar 12>);
+is-deeply($capture16, \(:bar(12)), 'Parsing decimal argument with "o"');
+
 done-testing;
