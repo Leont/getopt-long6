@@ -137,17 +137,6 @@ has Option:D %!options is required;
 
 submethod BUILD(:$!gnu-style, :$!permute, :%!options) { }
 
-my regex names {
-	[ $<name>=[\w+] ]+ % '|'
-	{ make @<name>».Str.list }
-}
-multi parse-option(Str $pattern where rx/ ^ <names> $<negatable>=['!'?] $ /) {
-	my $multiplexer = Monoplexer.new(:key($<names>.made[0]));
-	return $<names>.made.map: -> $name {
-		Option.new(:$multiplexer, parser => BooleanParser.new(:$name, :negatable(?$<negatable>)));
-	}
-}
-
 my %multiplexer-for = (
 	'%' => Hashplexer,
 	'@' => Arrayplexer,
@@ -155,22 +144,64 @@ my %multiplexer-for = (
 	'$' => Monoplexer,
 );
 
-my %converter-for-format = (
-	i => &int-converter,
-	s => &null-converter,
-	f => &rat-converter,
-);
+my grammar Argument {
+	token TOP {
+		<names> <argument>
+		{
+			my ($multi-class, %multi-args, $parser-class, %parser-args) := $<argument>.ast;
+			make $<names>.ast.map: -> $name {
+				my $multiplexer = $multi-class.new(|%multi-args, :key($<names>.ast[0]));
+				my $parser = $parser-class.new(:$name, |%parser-args);
+				Option.new(:$multiplexer, :$parser);
+			}
+		}
+	}
 
-multi parse-option(Str $pattern where rx/ ^ <names> '=' $<type>=<[sif]> $<class>=[<[%@]>?] /) {
-	my $converter = %converter-for-format{$<type>};
-	my $multiplexer = %multiplexer-for{~$<class>}.new(:key($<names>.made[0]), :type($converter.returns));
-	$<names>.made.map: -> $name {
-		Option.new(:$multiplexer, parser => ArgumentedParser.new(:$name, :$converter));
+	token names {
+		[ $<name>=[\w+] ]+ % '|'
+		{ make @<name>».Str.list }
+	}
+
+	token argument {
+		[ <boolean> | <equals> ]
+		{ make $/.values[0].made }
+	}
+
+	token boolean {
+		$<negatable>=['!'?]
+		{ make [ Monoplexer, {}, BooleanParser, { :negatable(?$<negatable>) } ] }
+	}
+
+	my %converter-for-format = (
+		i => &int-converter,
+		s => &null-converter,
+		f => &rat-converter,
+	);
+
+	token type {
+		<[sif]>
+		{ make %converter-for-format{$/} }
+	}
+
+	token equals {
+		'=' <type> $<repeat>=[<[%@]>?]
+		{ make [ %multiplexer-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) } ] }
 	}
 }
 
-multi parse-option(Str $pattern) {
-	die "Invalid pattern '$pattern'";
+multi method new(*@patterns, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
+	my %options;
+	for @patterns -> $pattern {
+		if Argument.parse($pattern) -> $match {
+			for @($match.ast) -> $option {
+				%options{$option.name} = $option;
+			}
+		}
+		else {
+			die "Couldn't parse '$pattern'";
+		}
+	}
+	return self.bless(:$gnu-style, :$permute, :%options);
 }
 
 my %converter-for-type{Any:U} = (
@@ -201,15 +232,6 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 				}
 				%options{$option.name} = $option;
 			}
-		}
-	}
-	return self.bless(:$gnu-style, :$permute, :%options);
-}
-multi method new(*@patterns, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
-	my %options;
-	for @patterns -> $pattern {
-		for parse-option($pattern) -> $option {
-			%options{$option.name} = $option;
 		}
 	}
 	return self.bless(:$gnu-style, :$permute, :%options);
