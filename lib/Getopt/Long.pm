@@ -205,7 +205,7 @@ my grammar Argument {
 	}
 
 	token argument {
-		[ <boolean> | <equals> ]
+		[ <boolean> | <equals> | <colon-type> ]
 		{ make $/.values[0].made }
 	}
 
@@ -228,6 +228,11 @@ my grammar Argument {
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
 		{ make [ %multiplexer-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) } ] }
+	}
+
+	token colon-type {
+		':' <type>
+		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) } ] }
 	}
 }
 

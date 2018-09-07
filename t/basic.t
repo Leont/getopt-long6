@@ -29,4 +29,12 @@ is-deeply($capture5, \('-a', :bar), '"--" terminates argument handling');
 my $capture6 = Getopt::Long.new('quz=f').get-options([<--quz=2.5>]);
 is-deeply($capture6, \(:quz(2.5)), 'Numeric arguments work');
 
+my $getopt2 = Getopt::Long.new('quz:i');
+
+my $capture7 = $getopt2.get-options(['--quz']);
+is-deeply($capture7, \(:quz(0)), ':i without argument works');
+
+my $capture8 = $getopt2.get-options(<--quz 2>);
+is-deeply($capture8, \(:quz(2)), ':i with argument works');
+
 done-testing;
