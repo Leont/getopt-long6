@@ -211,13 +211,18 @@ my grammar Argument {
 	}
 
 	token argument {
-		[ <boolean> | <equals> | <colon-type> | <colon-int> ]
+		[ <boolean> | <equals> | <counter> | <colon-type> | <colon-int> ]
 		{ make $/.values[0].made }
 	}
 
 	token boolean {
 		$<negatable>=['!'?]
 		{ make [ Monoplexer, {}, BooleanParser, { :negatable(?$<negatable>) } ] }
+	}
+
+	token counter {
+		'+'
+		{ make [ Countplexer, {}, BooleanParser, { :!negatable } ] }
 	}
 
 	my %converter-for-format = (

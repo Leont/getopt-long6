@@ -45,4 +45,9 @@ is-deeply($capture9, \(:quz(1)), ':1 without argument works');
 my $capture10 = $getopt3.get-options(<--quz 2>);
 is-deeply($capture10, \(:quz(2)), ':1 with argument works');
 
+my $getopt4 = Getopt::Long.new('foo+');
+
+my $capture11 = $getopt4.get-options(<--foo --foo>);
+is-deeply($capture11, \(:foo(2)), 'Counter adds up');
+
 done-testing;
