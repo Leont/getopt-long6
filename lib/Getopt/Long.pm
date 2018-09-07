@@ -147,6 +147,12 @@ class Monoplexer does Multiplexer {
 	}
 }
 
+class Countplexer does Multiplexer {
+	method store(Any:D $value, Hash:D $hash) {
+		$hash{$!key} += $value;
+	}
+}
+
 class Arrayplexer does Multiplexer {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} //= Array[$!type].new;
