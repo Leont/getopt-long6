@@ -205,7 +205,7 @@ my grammar Argument {
 	}
 
 	token argument {
-		[ <boolean> | <equals> | <colon-type> ]
+		[ <boolean> | <equals> | <colon-type> | <colon-int> ]
 		{ make $/.values[0].made }
 	}
 
@@ -233,6 +233,11 @@ my grammar Argument {
 	token colon-type {
 		':' <type>
 		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) } ] }
+	}
+
+	token colon-int {
+		':' $<num>=[<[0..9]>+]
+		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) } ] }
 	}
 }
 

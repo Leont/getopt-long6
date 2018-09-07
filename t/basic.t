@@ -37,4 +37,12 @@ is-deeply($capture7, \(:quz(0)), ':i without argument works');
 my $capture8 = $getopt2.get-options(<--quz 2>);
 is-deeply($capture8, \(:quz(2)), ':i with argument works');
 
+my $getopt3 = Getopt::Long.new('quz:1');
+
+my $capture9 = $getopt3.get-options(['--quz']);
+is-deeply($capture9, \(:quz(1)), ':1 without argument works');
+
+my $capture10 = $getopt3.get-options(<--quz 2>);
+is-deeply($capture10, \(:quz(2)), ':1 with argument works');
+
 done-testing;
