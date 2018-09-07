@@ -50,4 +50,12 @@ my $getopt4 = Getopt::Long.new('foo+');
 my $capture11 = $getopt4.get-options(<--foo --foo>);
 is-deeply($capture11, \(:foo(2)), 'Counter adds up');
 
+my $getopt5 = Getopt::Long.new('foo:+');
+
+my $capture12 = $getopt5.get-options(['--foo']);
+is-deeply($capture12, \(:foo(1)), 'Colon singles fine');
+
+my $capture13 = $getopt5.get-options(<--foo 2 --foo>);
+is-deeply($capture13, \(:foo(3)), 'Colon counter adds up');
+
 done-testing;

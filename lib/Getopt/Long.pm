@@ -211,7 +211,7 @@ my grammar Argument {
 	}
 
 	token argument {
-		[ <boolean> | <equals> | <counter> | <colon-type> | <colon-int> ]
+		[ <boolean> | <equals> | <counter> | <colon-type> | <colon-int> | <colon-count> ]
 		{ make $/.values[0].made }
 	}
 
@@ -249,6 +249,11 @@ my grammar Argument {
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
 		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) } ] }
+	}
+
+	token colon-count {
+		':+'
+		{ make [ Countplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default(1) } ] }
 	}
 }
 
