@@ -18,14 +18,14 @@ my sub maybe-converter(Str:D $value --> Any) {
 	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
 }
 
-role Parser {
+my role Parser {
 	has Str:D $.name is required;
 	method takes-argument(--> Bool:D) { ... }
 	method parse($raw, $others) { ... }
 	method parse-single($raw, $others) { ... }
 }
 
-class BooleanParser does Parser {
+my class BooleanParser does Parser {
 	has Bool:D $.negatable = True;
 	method takes-argument(--> Bool:D) {
 		return False;
@@ -52,7 +52,7 @@ class BooleanParser does Parser {
 	}
 }
 
-class ArgumentedParser does Parser {
+my class ArgumentedParser does Parser {
 	has Sub $.converter = &null-converter;
 	method takes-argument(--> Bool) {
 		return True;
@@ -93,7 +93,7 @@ class ArgumentedParser does Parser {
 	}
 }
 
-class MaybeArgumentedParser does Parser {
+my class MaybeArgumentedParser does Parser {
 	has Sub $.converter = &null-converter;
 	has Any $.default is required;
 	method takes-argument(--> Bool) {
@@ -135,32 +135,32 @@ class MaybeArgumentedParser does Parser {
 	}
 }
 
-role Multiplexer {
+my role Multiplexer {
 	has Str:D $.key is required;
 	has Any:U $.type = Any;
 	method store($value, $hash) { ... }
 }
 
-class Monoplexer does Multiplexer {
+my class Monoplexer does Multiplexer {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} = $value;
 	}
 }
 
-class Countplexer does Multiplexer {
+my class Countplexer does Multiplexer {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} += $value;
 	}
 }
 
-class Arrayplexer does Multiplexer {
+my class Arrayplexer does Multiplexer {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} //= Array[$!type].new;
 		$hash{$!key}.push($value);
 	}
 }
 
-class Hashplexer does Multiplexer {
+my class Hashplexer does Multiplexer {
 	method store(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
 		$hash{$!key} //= Hash[$!type].new;
@@ -168,7 +168,7 @@ class Hashplexer does Multiplexer {
 	}
 }
 
-class Option {
+my class Option {
 	has Parser:D $.parser is required handles <name takes-argument>;
 	has Multiplexer:D $.multiplexer is required;
 	method match(Str:D $raw, Any:D $arg, Hash:D $hash) {
@@ -279,7 +279,7 @@ my %converter-for-type{Any:U} = (
 	(Any) => &maybe-converter,
 );
 
-sub parse-parameter(Parameter $param) {
+my sub parse-parameter(Parameter $param) {
 	my ($key) = my @names = $param.named_names;
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
 	my $converter = %converter-for-type{$type} // &null-converter;
