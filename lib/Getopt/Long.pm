@@ -2,6 +2,8 @@ use v6;
 
 unit class Getopt::Long;
 
+my enum Parser < BooleanParser ArgumentedParser MaybeArgumentedParser >;
+
 my sub null-converter(Str:D $value --> Str) {
 	return $value;
 }
@@ -53,123 +55,6 @@ my sub maybe-converter(Str:D $value --> Any) {
 	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
 }
 
-my role Parser {
-	has Str:D $.name is required;
-	method takes-argument(--> Bool:D) { ... }
-	method parse($raw, $others) { ... }
-	method parse-single($raw, $others) { ... }
-}
-
-my class BooleanParser does Parser {
-	has Bool:D $.negatable = True;
-	method takes-argument(--> Bool:D) {
-		return False;
-	}
-	method parse(Str $raw, Array:D $) {
-		my $name = $!name;
-		if $raw eq $!name {
-			return True;
-		}
-		elsif $!negatable && $raw ~~ / ^ 'no' '-'? $name $/ {
-			return False
-		}
-		else {
-			die "$raw can't match boolean {$name}?";
-		}
-	}
-	method parse-single (Str $raw, $) {
-		if $raw eq $!name {
-			return True;
-		}
-		else {
-			die "$raw can't match boolean $!name?";
-		}
-	}
-}
-
-my class ArgumentedParser does Parser {
-	has Sub $.converter = &null-converter;
-	method takes-argument(--> Bool) {
-		return True;
-	}
-	method parse(Str:D $raw, Array:D $others) {
-		my $name = self.name;
-		if $raw eq $!name {
-			if $others.elems {
-				return $!converter($others.shift);
-			}
-			else {
-				die "Expected an argument";
-			}
-		}
-		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
-			return $!converter(~$<value>);
-		}
-		else {
-			die "$raw can't match argument {$name.perl}?";
-		}
-	}
-	method parse-single(Str:D $raw, Array:D $others) {
-		my $name = self.name;
-		if $raw eq $!name {
-			if $others.elems {
-				return $!converter($others.shift);
-			}
-			else {
-				die "Expected an argument for $name";
-			}
-		}
-		elsif $raw ~~ / ^ $name $<value>=[.*] $ / -> $/ {
-			return $!converter(~$<value>);
-		}
-		else {
-			die "$raw can't match argument {$name.perl}?";
-		}
-	}
-}
-
-my class MaybeArgumentedParser does Parser {
-	has Sub $.converter = &null-converter;
-	has Any $.default is required;
-	method takes-argument(--> Bool) {
-		return True;
-	}
-	method parse(Str:D $raw, Array:D $others) {
-		my $name = self.name;
-		if $raw eq $!name {
-			if $others.elems && !$others[0].starts-with('-') {
-				return $!converter($others.shift);
-			}
-			else {
-				return $!default;
-			}
-		}
-		elsif $raw ~~ / ^ $name '=' $<value>=[.*] / -> $/ {
-			return $!converter(~$<value>);
-		}
-		else {
-			die "$raw can't match argument {$name.perl}?";
-		}
-	}
-	method parse-single(Str:D $raw, Array:D $others) {
-		my $name = self.name;
-		if $raw eq $!name {
-			if $others.elems && !$others[0].starts-with('-') {
-				return $!converter($others.shift);
-			}
-			else {
-				return $!default;
-			}
-		}
-		elsif $raw ~~ / ^ $name $<value>=[.*] $ / -> $/ {
-			return $!converter(~$<value>);
-		}
-		else {
-			die "$raw can't match argument {$name.perl}?";
-		}
-	}
-}
-
 my role Multiplexer {
 	has Str:D $.key is required;
 	has Any:U $.type = Any;
@@ -204,13 +89,16 @@ my class Hashplexer does Multiplexer {
 }
 
 my class Option {
-	has Parser:D $.parser is required handles <name takes-argument>;
+	has Str:D $.name is required;
+	has Parser:D $.type is required;
+	has Sub:D $.converter = &null-converter;
 	has Multiplexer:D $.multiplexer is required;
-	method match(Str:D $raw, Any:D $arg, Hash:D $hash) {
-		$!multiplexer.store($!parser.parse($raw, $arg), $hash);
+	has Any $.default;
+	method store(Str:D $raw, Hash:D $hash) {
+		$!multiplexer.store($!converter($raw), $hash);
 	}
-	method match-single(Str:D $raw, Any:D $arg, Hash:D $hash) {
-		$!multiplexer.store($!parser.parse-single($raw, $arg), $hash);
+	method store-default(Hash:D $hash) {
+		$!multiplexer.store($!default, $hash);
 	}
 }
 
@@ -231,11 +119,16 @@ my grammar Argument {
 	token TOP {
 		<names> <argument>
 		{
-			my ($multi-class, %multi-args, $parser-class, %parser-args) := $<argument>.ast;
+			my ($multi-class, $multi-args, $type, %options-args, $negatable) := $<argument>.ast;
 			make $<names>.ast.map: -> $name {
-				my $multiplexer = $multi-class.new(|%multi-args, :key($<names>.ast[0]));
-				my $parser = $parser-class.new(:$name, |%parser-args);
-				Option.new(:$multiplexer, :$parser);
+				my $multiplexer = $multi-class.new(|%$multi-args, :key($<names>.ast[0]));
+				my @options;
+				@options.push: Option.new(:$name, :$multiplexer, :$type, :default, |%options-args);
+				if $negatable {
+					@options.push: Option.new(:name("no$name"), :$multiplexer, :$type, |%options-args, :!default);
+					@options.push: Option.new(:name("no-$name"), :$multiplexer, :$type, |%options-args, :!default);
+				}
+				|@options;
 			}
 		}
 	}
@@ -252,12 +145,12 @@ my grammar Argument {
 
 	token boolean {
 		$<negatable>=['!'?]
-		{ make [ Monoplexer, {}, BooleanParser, { :negatable(?$<negatable>) } ] }
+		{ make [ Monoplexer, {}, BooleanParser, {}, $<negatable> ] }
 	}
 
 	token counter {
 		'+'
-		{ make [ Countplexer, {}, BooleanParser, { :!negatable } ] }
+		{ make [ Countplexer, {}, BooleanParser, { }, False ] }
 	}
 
 	my %converter-for-format = (
@@ -274,22 +167,22 @@ my grammar Argument {
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %multiplexer-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) } ] }
+		{ make [ %multiplexer-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) }, False ] }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) } ] }
+		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) }, False ] }
 	}
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) } ] }
+		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) }, False ] }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ Countplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default(1) } ] }
+		{ make [ Countplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default(1) }, False ] }
 	}
 }
 
@@ -321,8 +214,9 @@ my sub parse-parameter(Parameter $param) {
 	my $converter = %converter-for-type{$type} // &null-converter;
 	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$type);
 	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
+	my %args = $parser == BooleanParser ?? :default !! :$converter;
 	return @names.map: -> $name {
-		Option.new(:$multiplexer, parser => $parser.new(:$name, :$converter));
+		Option.new(:$name, :$multiplexer, :type($parser), |%args);
 	}
 }
 
@@ -348,7 +242,27 @@ method get-options(@argv) {
 		my $head = @args.shift;
 		if $head ~~ / ^ '--' $<name>=[<[\w-]>+] $ / -> $/ {
 			if %!options{$<name>} -> $option {
-				$option.match(~$<name>, @args, %hash);
+				given $option.type {
+					when BooleanParser {
+						$option.store-default(%hash);
+					}
+					when ArgumentedParser {
+						if @args {
+							$option.store(@args.shift, %hash);
+						}
+						else {
+							die "No argument given for $<name>";
+						}
+					}
+					when MaybeArgumentedParser {
+						if @args {
+							$option.store(@args.shift, %hash);
+						}
+						else {
+							$option.store-default(%hash);
+						}
+					}
+				}
 			}
 			else {
 				die "Unknown option $<name>: ";
@@ -356,8 +270,8 @@ method get-options(@argv) {
 		}
 		elsif $!gnu-style && $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
 			if %!options{$<name>} -> $option {
-				die "Option {$option.name} doesn't take arguments" unless $option.takes-argument;
-				$option.match(~$<value>, @args, %hash);
+				die "Option {$option.name} doesn't take arguments" unless $option.type == ArgumentedParser|MaybeArgumentedParser;
+				$option.store(~$<value>, %hash);
 			}
 			else {
 				die "Unknown option $<name>";
@@ -365,15 +279,20 @@ method get-options(@argv) {
 		}
 		elsif $head ~~ / ^ '-' $<values>=[\w .*] $ / -> $/ {
 			my @values = $<values>.Str.comb;
-			my %options = @values.map: -> $value { $value => %!options{$value} };
-			if all(%options.values).defined && none(%options.values).takes-argument {
-				for %options.kv -> $value, $option {
-					$option.match-single($value, @args, %hash);
+			my @options = @values.map: -> $value { %!options{$value} };
+			if all(@options).defined && all(@options).type == BooleanParser {
+				for @options -> $option {
+					$option.store-default(%hash);
 				}
 			}
 			else {
-				if %!options{@values[0]} -> $option {
-					$option.match-single(~$<values>, @args, %hash);
+				if @options[0] && @options[0].type == ArgumentedParser|MaybeArgumentedParser {
+					if @values > 1 {
+						@options[0].store($<values>.substr(1), %hash);
+					}
+					elsif @args {
+						@options[0].store(@args.shift, %hash);
+					}
 				}
 			}
 		}

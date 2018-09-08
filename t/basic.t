@@ -69,4 +69,9 @@ is-deeply($capture15, \(:bar(-10)), 'Parsing negative octal argument with "o"');
 my $capture16 = $getopt6.get-options(<--bar 12>);
 is-deeply($capture16, \(:bar(12)), 'Parsing decimal argument with "o"');
 
+my $getopt7 = Getopt::Long.new('bar!');
+
+my $capture17 = $getopt7.get-options(['--no-bar']);
+is-deeply($capture17, \(:!bar), 'Negated arguments produce False');
+
 done-testing;
