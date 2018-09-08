@@ -346,7 +346,7 @@ method get-options(@argv) {
 	my (@list, %hash);
 	while @args {
 		my $head = @args.shift;
-		if $head ~~ / ^ '--' $<name>=[\w+] $ / -> $/ {
+		if $head ~~ / ^ '--' $<name>=[<[\w-]>+] $ / -> $/ {
 			if %!options{$<name>} -> $option {
 				$option.match(~$<name>, @args, %hash);
 			}
@@ -354,7 +354,7 @@ method get-options(@argv) {
 				die "Unknown option $<name>: ";
 			}
 		}
-		elsif $!gnu-style && $head ~~ / ^ '--' $<value>=[ $<name>=[\w+] '=' .* ] / -> $/ {
+		elsif $!gnu-style && $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
 			if %!options{$<name>} -> $option {
 				die "Option {$option.name} doesn't take arguments" unless $option.takes-argument;
 				$option.match(~$<value>, @args, %hash);
@@ -363,7 +363,7 @@ method get-options(@argv) {
 				die "Unknown option $<name>";
 			}
 		}
-		elsif $head ~~ / ^ '-' $<values>=[\w+] $ / -> $/ {
+		elsif $head ~~ / ^ '-' $<values>=[\w .*] $ / -> $/ {
 			my @values = $<values>.Str.comb;
 			my %options = @values.map: -> $value { $value => %!options{$value} };
 			if all(%options.values).defined && none(%options.values).takes-argument {
