@@ -2,8 +2,6 @@ use v6;
 
 unit class Getopt::Long;
 
-my enum Parser < BooleanParser ArgumentedParser MaybeArgumentedParser >;
-
 my sub null-converter(Str:D $value --> Str) {
 	return $value;
 }
@@ -90,11 +88,11 @@ my class HashStore does Store {
 
 my class Option {
 	has Str:D $.name is required;
-	has Parser:D $.type is required;
+	has Range:D $.arity is required;
 	has Sub:D $.converter = &null-converter;
 	has Store:D $.store is required;
 	has Any $.default;
-	method store(Str:D $raw, Hash:D $hash) {
+	method store(Any:D $raw, Hash:D $hash) {
 		$!store.store($!converter($raw), $hash);
 	}
 	method store-default(Hash:D $hash) {
@@ -120,14 +118,14 @@ my grammar Argument {
 	token TOP {
 		<names> <argument>
 		{
-			my ($multi-class, $multi-args, $type, %options-args, $negatable) := $<argument>.ast;
+			my ($multi-class, $multi-args, $arity, %options-args, $negatable) := $<argument>.ast;
 			make $<names>.ast.map: -> $name {
 				my $store = $multi-class.new(|%$multi-args, :key($<names>.ast[0]));
 				my @options;
-				@options.push: Option.new(:$name, :$store, :$type, :default, |%options-args);
+				@options.push: Option.new(:$name, :$store, :$arity, :default, |%options-args);
 				if $negatable {
-					@options.push: Option.new(:name("no$name"), :$store, :$type, |%options-args, :!default);
-					@options.push: Option.new(:name("no-$name"), :$store, :$type, |%options-args, :!default);
+					@options.push: Option.new(:name("no$name"), :$store, :$arity, |%options-args, :!default);
+					@options.push: Option.new(:name("no-$name"), :$store, :$arity, |%options-args, :!default);
 				}
 				|@options;
 			}
@@ -140,18 +138,18 @@ my grammar Argument {
 	}
 
 	token argument {
-		[ <boolean> | <equals> | <counter> | <colon-type> | <colon-int> | <colon-count> ]
+		[ <boolean> | <equals-more> | <equals> | <counter> | <colon-type> | <colon-int> | <colon-count> ]
 		{ make $/.values[0].made }
 	}
 
 	token boolean {
 		$<negatable>=['!'?]
-		{ make [ ScalarStore, {}, BooleanParser, {}, $<negatable> ] }
+		{ make [ ScalarStore, {}, 0..0, {}, $<negatable> ] }
 	}
 
 	token counter {
 		'+'
-		{ make [ CountStore, {}, BooleanParser, { }, False ] }
+		{ make [ CountStore, {}, 0..0, { }, False ] }
 	}
 
 	my %converter-for-format = (
@@ -168,22 +166,31 @@ my grammar Argument {
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %store-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) }, False ] }
+		{ make [ %store-for{~$<repeat>}, { :type($<type>.ast.returns) }, 1..1, { :converter($<type>.ast) }, False ] }
+	}
+
+	rule range {
+		| $<min=>=\d* ',' $<max>=\d*  { make ( +$<min> ) .. ($<max> ?? +$<max> !! *) }
+		| $<num>=\d+                  { make $/.Int..$/.Int }
+	}
+	token equals-more {
+		'=' <type> '{' <range>'}'
+		{ make [ ArrayStore, { :type($<type>.ast.returns) }, $<range>.ast, { :converter($<type>.ast) }, False ] }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ ScalarStore, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) }, False ] }
+		{ make [ ScalarStore, {}, 0..1, { :converter($<type>.ast), :default($<type>.ast.returns.new) }, False ] }
 	}
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ ScalarStore, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) }, False ] }
+		{ make [ ScalarStore, {}, 0..1, { :converter(&int-converter), :default($<num>.Int) }, False ] }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ CountStore, {}, MaybeArgumentedParser, { :converter(&int-converter), :default(1) }, False ] }
+		{ make [ CountStore, {}, 0..1, { :converter(&int-converter), :default(1) }, False ] }
 	}
 }
 
@@ -214,10 +221,10 @@ my sub parse-parameter(Parameter $param) {
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
 	my $converter = %converter-for-type{$type} // &null-converter;
 	my $store = %store-for{$param.sigil}.new(:$key, :$type);
-	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
-	my %args = $parser == BooleanParser ?? :default !! :$converter;
+	my $arity = $param.sigil eq '$' && $param.type === Bool ?? 0..0 !! 1..1;
+	my %args = $arity == 0..0 ?? :default !! :$converter;
 	return @names.map: -> $name {
-		Option.new(:$name, :$store, :type($parser), |%args);
+		Option.new(:$name, :$store, :$arity, |%args);
 	}
 }
 
@@ -241,40 +248,43 @@ method get-options(@argv) {
 	my (@list, %hash);
 	while @args {
 		my $head = @args.shift;
+
+		my $consumed = 0;
+
+		sub take-value($option, $value) {
+			$option.store($value, %hash);
+			$consumed++;
+		}
+		sub take-args($option) {
+			while @args && $consumed < $option.arity.min {
+				$option.store(@args.shift, %hash);
+				$consumed++;
+			}
+
+			while @args && $consumed < $option.arity.max && !@args[0].starts-with('--') {
+				$option.store(@args.shift, %hash);
+				$consumed++;
+			}
+
+			if $consumed == 0 && $option.arity.min == 0 {
+				$option.store-default(%hash);
+			}
+			elsif $consumed < $option.arity.min {
+				die "No argument given for option {$option.name}";
+			}
+		}
+
 		if $!bundling && $head ~~ / ^ '-' $<values>=[\w <[\w-]>*] $ / -> $/ {
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
 				my $option = %!options{$value} or die "No such option $value";
-				given $option.type {
-					when BooleanParser {
-						$option.store-default(%hash);
-					}
-					when ArgumentedParser {
-						if $index + 1 < @values.elems {
-							$option.store($<values>.substr($index + 1), %hash);
-						}
-						elsif @args {
-							$option.store(@args.shift, %hash);
-						}
-						else {
-							die "No argument given for option $value";
-						}
-						last;
-					}
-					when MaybeArgumentedParser {
-						if $index + 1 < @values.elems {
-							$option.store($<values>.substr($index + 1), %hash);
-						}
-						elsif @args {
-							$option.store(@args.shift, %hash);
-						}
-						else {
-							$option.store-default(%hash);
-						}
-						last;
-					}
+				if $option.arity.max > 0 && $index + 1 < @values.elems {
+					take-value($option, $<values>.substr($index + 1));
 				}
+
+				take-args($option);
+				last if $consumed;
 			}
 		}
 		elsif $head eq '--' {
@@ -283,27 +293,7 @@ method get-options(@argv) {
 		}
 		elsif $head ~~ / ^ '-' ** 1..2 $<name>=[\w <[\w-]>*] $ / -> $/ {
 			if %!options{$<name>} -> $option {
-				given $option.type {
-					when BooleanParser {
-						$option.store-default(%hash);
-					}
-					when ArgumentedParser {
-						if @args {
-							$option.store(@args.shift, %hash);
-						}
-						else {
-							die "No argument given for $<name>";
-						}
-					}
-					when MaybeArgumentedParser {
-						if @args {
-							$option.store(@args.shift, %hash);
-						}
-						else {
-							$option.store-default(%hash);
-						}
-					}
-				}
+				take-args($option);
 			}
 			else {
 				die "Unknown option $<name>";
@@ -311,8 +301,10 @@ method get-options(@argv) {
 		}
 		elsif $!gnu-style && $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
 			if %!options{$<name>} -> $option {
-				die "Option {$option.name} doesn't take arguments" if $option.type == BooleanParser;
-				$option.store(~$<value>, %hash);
+				die  "$<name> doesn't take arguments" if $option.arity.max == 0;
+				take-value($option, ~$<value>);
+
+				take-args($option);
 			}
 			else {
 				die "Unknown option $<name>";

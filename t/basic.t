@@ -79,4 +79,14 @@ my $getopt8 = Getopt::Long.new(<a b c abc>, :!bundling);
 my $capture18 = $getopt8.get-options(['-abc']);
 is-deeply($capture18, \(:abc), 'Bundling can be disabled');
 
+my $getopt9 = Getopt::Long.new(<foo=i{2}>);
+
+my $capture19 = $getopt9.get-options(['--foo', '1', '2', '3']);
+is-deeply($capture19, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works');
+
+my $getopt10 = Getopt::Long.new(<foo=i{1,2}>);
+
+my $capture20 = $getopt10.get-options(['--foo', '1', '2', '3']);
+is-deeply($capture20, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
+
 done-testing;
