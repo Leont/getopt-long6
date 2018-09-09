@@ -102,11 +102,12 @@ my class Option {
 	}
 }
 
-has Bool:D $.gnu-style is required;
-has Bool:D $.permute is required;
-has Option:D %!options is required;
+has Bool:D $!gnu-style is required;
+has Bool:D $!permute is required;
+has Bool:D $!bundling is required;
+has Option:D %!options;
 
-submethod BUILD(:$!gnu-style, :$!permute, :%!options) { }
+submethod BUILD(:$!gnu-style = True, :$!permute = False, :$!bundling = True, :%!options) { }
 
 my %multiplexer-for = (
 	'%' => Hashplexer,
@@ -186,7 +187,7 @@ my grammar Argument {
 	}
 }
 
-multi method new(*@patterns, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
+multi method new(*@patterns, *%args) {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
@@ -198,7 +199,7 @@ multi method new(*@patterns, Bool:D :$gnu-style = True, Bool:D :$permute = False
 			die "Couldn't parse '$pattern'";
 		}
 	}
-	return self.bless(:$gnu-style, :$permute, :%options);
+	return self.bless(|%args, :%options);
 }
 
 my %converter-for-type{Any:U} = (
@@ -240,7 +241,30 @@ method get-options(@argv) {
 	my (@list, %hash);
 	while @args {
 		my $head = @args.shift;
-		if $head ~~ / ^ '--' $<name>=[<[\w-]>+] $ / -> $/ {
+		if $!bundling && $head ~~ / ^ '-' $<values>=[\w <[\w-]>*] $ / -> $/ {
+			my @values = $<values>.Str.comb;
+			my @options = @values.map: -> $value { %!options{$value} };
+			if all(@options).defined && all(@options).type == BooleanParser {
+				for @options -> $option {
+					$option.store-default(%hash);
+				}
+			}
+			else {
+				if @options[0] && @options[0].type == ArgumentedParser|MaybeArgumentedParser {
+					if @values > 1 {
+						@options[0].store($<values>.substr(1), %hash);
+					}
+					elsif @args {
+						@options[0].store(@args.shift, %hash);
+					}
+				}
+			}
+		}
+		elsif $head eq '--' {
+			@list.append: |@args;
+			last;
+		}
+		elsif $head ~~ / ^ '-' ** 1..2 $<name>=[\w <[\w-]>*] $ / -> $/ {
 			if %!options{$<name>} -> $option {
 				given $option.type {
 					when BooleanParser {
@@ -265,40 +289,17 @@ method get-options(@argv) {
 				}
 			}
 			else {
-				die "Unknown option $<name>: ";
+				die "Unknown option $<name>";
 			}
 		}
 		elsif $!gnu-style && $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
 			if %!options{$<name>} -> $option {
-				die "Option {$option.name} doesn't take arguments" unless $option.type == ArgumentedParser|MaybeArgumentedParser;
+				die "Option {$option.name} doesn't take arguments" if $option.type == BooleanParser;
 				$option.store(~$<value>, %hash);
 			}
 			else {
 				die "Unknown option $<name>";
 			}
-		}
-		elsif $head ~~ / ^ '-' $<values>=[\w .*] $ / -> $/ {
-			my @values = $<values>.Str.comb;
-			my @options = @values.map: -> $value { %!options{$value} };
-			if all(@options).defined && all(@options).type == BooleanParser {
-				for @options -> $option {
-					$option.store-default(%hash);
-				}
-			}
-			else {
-				if @options[0] && @options[0].type == ArgumentedParser|MaybeArgumentedParser {
-					if @values > 1 {
-						@options[0].store($<values>.substr(1), %hash);
-					}
-					elsif @args {
-						@options[0].store(@args.shift, %hash);
-					}
-				}
-			}
-		}
-		elsif $head eq '--' {
-			@list.append: |@args;
-			last;
 		}
 		else {
 			if $!permute {

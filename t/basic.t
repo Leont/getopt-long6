@@ -74,4 +74,9 @@ my $getopt7 = Getopt::Long.new('bar!');
 my $capture17 = $getopt7.get-options(['--no-bar']);
 is-deeply($capture17, \(:!bar), 'Negated arguments produce False');
 
+my $getopt8 = Getopt::Long.new(<a b c abc>, :!bundling);
+
+my $capture18 = $getopt8.get-options(['-abc']);
+is-deeply($capture18, \(:abc), 'Bundling can be disabled');
+
 done-testing;
