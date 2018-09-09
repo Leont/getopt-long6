@@ -55,32 +55,32 @@ my sub maybe-converter(Str:D $value --> Any) {
 	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
 }
 
-my role Multiplexer {
+my role Store {
 	has Str:D $.key is required;
 	has Any:U $.type = Any;
 	method store($value, $hash) { ... }
 }
 
-my class Monoplexer does Multiplexer {
+my class ScalarStore does Store {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} = $value;
 	}
 }
 
-my class Countplexer does Multiplexer {
+my class CountStore does Store {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} += $value;
 	}
 }
 
-my class Arrayplexer does Multiplexer {
+my class ArrayStore does Store {
 	method store(Any:D $value, Hash:D $hash) {
 		$hash{$!key} //= Array[$!type].new;
 		$hash{$!key}.push($value);
 	}
 }
 
-my class Hashplexer does Multiplexer {
+my class HashStore does Store {
 	method store(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
 		$hash{$!key} //= Hash[$!type].new;
@@ -92,13 +92,13 @@ my class Option {
 	has Str:D $.name is required;
 	has Parser:D $.type is required;
 	has Sub:D $.converter = &null-converter;
-	has Multiplexer:D $.multiplexer is required;
+	has Store:D $.store is required;
 	has Any $.default;
 	method store(Str:D $raw, Hash:D $hash) {
-		$!multiplexer.store($!converter($raw), $hash);
+		$!store.store($!converter($raw), $hash);
 	}
 	method store-default(Hash:D $hash) {
-		$!multiplexer.store($!default, $hash);
+		$!store.store($!default, $hash);
 	}
 }
 
@@ -109,11 +109,11 @@ has Option:D %!options;
 
 submethod BUILD(:$!gnu-style = True, :$!permute = False, :$!bundling = True, :%!options) { }
 
-my %multiplexer-for = (
-	'%' => Hashplexer,
-	'@' => Arrayplexer,
-	''  => Monoplexer,
-	'$' => Monoplexer,
+my %store-for = (
+	'%' => HashStore,
+	'@' => ArrayStore,
+	''  => ScalarStore,
+	'$' => ScalarStore,
 );
 
 my grammar Argument {
@@ -122,12 +122,12 @@ my grammar Argument {
 		{
 			my ($multi-class, $multi-args, $type, %options-args, $negatable) := $<argument>.ast;
 			make $<names>.ast.map: -> $name {
-				my $multiplexer = $multi-class.new(|%$multi-args, :key($<names>.ast[0]));
+				my $store = $multi-class.new(|%$multi-args, :key($<names>.ast[0]));
 				my @options;
-				@options.push: Option.new(:$name, :$multiplexer, :$type, :default, |%options-args);
+				@options.push: Option.new(:$name, :$store, :$type, :default, |%options-args);
 				if $negatable {
-					@options.push: Option.new(:name("no$name"), :$multiplexer, :$type, |%options-args, :!default);
-					@options.push: Option.new(:name("no-$name"), :$multiplexer, :$type, |%options-args, :!default);
+					@options.push: Option.new(:name("no$name"), :$store, :$type, |%options-args, :!default);
+					@options.push: Option.new(:name("no-$name"), :$store, :$type, |%options-args, :!default);
 				}
 				|@options;
 			}
@@ -146,12 +146,12 @@ my grammar Argument {
 
 	token boolean {
 		$<negatable>=['!'?]
-		{ make [ Monoplexer, {}, BooleanParser, {}, $<negatable> ] }
+		{ make [ ScalarStore, {}, BooleanParser, {}, $<negatable> ] }
 	}
 
 	token counter {
 		'+'
-		{ make [ Countplexer, {}, BooleanParser, { }, False ] }
+		{ make [ CountStore, {}, BooleanParser, { }, False ] }
 	}
 
 	my %converter-for-format = (
@@ -168,22 +168,22 @@ my grammar Argument {
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %multiplexer-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) }, False ] }
+		{ make [ %store-for{~$<repeat>}, { :type($<type>.ast.returns) }, ArgumentedParser, { :converter($<type>.ast) }, False ] }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) }, False ] }
+		{ make [ ScalarStore, {}, MaybeArgumentedParser, { :converter($<type>.ast), :default($<type>.ast.returns.new) }, False ] }
 	}
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ Monoplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) }, False ] }
+		{ make [ ScalarStore, {}, MaybeArgumentedParser, { :converter(&int-converter), :default($<num>.Int) }, False ] }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ Countplexer, {}, MaybeArgumentedParser, { :converter(&int-converter), :default(1) }, False ] }
+		{ make [ CountStore, {}, MaybeArgumentedParser, { :converter(&int-converter), :default(1) }, False ] }
 	}
 }
 
@@ -213,11 +213,11 @@ my sub parse-parameter(Parameter $param) {
 	my ($key) = my @names = $param.named_names;
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
 	my $converter = %converter-for-type{$type} // &null-converter;
-	my $multiplexer = %multiplexer-for{$param.sigil}.new(:$key, :$type);
+	my $store = %store-for{$param.sigil}.new(:$key, :$type);
 	my $parser = $param.sigil eq '$' && $param.type === Bool ?? BooleanParser !! ArgumentedParser;
 	my %args = $parser == BooleanParser ?? :default !! :$converter;
 	return @names.map: -> $name {
-		Option.new(:$name, :$multiplexer, :type($parser), |%args);
+		Option.new(:$name, :$store, :type($parser), |%args);
 	}
 }
 
