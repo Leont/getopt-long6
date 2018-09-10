@@ -243,19 +243,36 @@ method get-options(@argv) {
 		my $head = @args.shift;
 		if $!bundling && $head ~~ / ^ '-' $<values>=[\w <[\w-]>*] $ / -> $/ {
 			my @values = $<values>.Str.comb;
-			my @options = @values.map: -> $value { %!options{$value} };
-			if all(@options).defined && all(@options).type == BooleanParser {
-				for @options -> $option {
-					$option.store-default(%hash);
-				}
-			}
-			else {
-				if @options[0] && @options[0].type == ArgumentedParser|MaybeArgumentedParser {
-					if @values > 1 {
-						@options[0].store($<values>.substr(1), %hash);
+			for @values.keys -> $index {
+				my $value = @values[$index];
+				my $option = %!options{$value} or die "No such option $value";
+				given $option.type {
+					when BooleanParser {
+						$option.store-default(%hash);
 					}
-					elsif @args {
-						@options[0].store(@args.shift, %hash);
+					when ArgumentedParser {
+						if $index + 1 < @values.elems {
+							$option.store($<values>.substr($index + 1), %hash);
+						}
+						elsif @args {
+							$option.store(@args.shift, %hash);
+						}
+						else {
+							die "No argument given for option $value";
+						}
+						last;
+					}
+					when MaybeArgumentedParser {
+						if $index + 1 < @values.elems {
+							$option.store($<values>.substr($index + 1), %hash);
+						}
+						elsif @args {
+							$option.store(@args.shift, %hash);
+						}
+						else {
+							$option.store-default(%hash);
+						}
+						last;
 					}
 				}
 			}

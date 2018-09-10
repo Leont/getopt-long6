@@ -9,7 +9,7 @@ is-deeply($capture, \('baz', :bar, :a, :c, :foo(Array[Str].new(<bar bar2 bar3>))
 
 multi main(*@, Str :fooo(:f(:@foo)), Bool :$bar) {
 }
-multi main(*@, Bool :$a!, Bool :$c!) {
+multi main(*@, Bool :$a!, Bool :$c!, Bool :$d) {
 }
 my $getopt = Getopt::Long.new(&main);
 
@@ -17,8 +17,8 @@ my $capture2 = $getopt.get-options(<--foo bar --fooo bar2 --bar baz>);
 is-deeply($capture2, \('baz', :bar, :foo(Array[Str].new(<bar bar2>))), 'Common argument mix works (2)');
 lives-ok( { main(|$capture2) }, 'Calling main (1) works');
 
-my $capture3 = $getopt.get-options(<-ac -fbar3>);
-is-deeply($capture3, \(:a, :c, :foo(Array[Str].new(<bar3>))), 'Short options work');
+my $capture3 = $getopt.get-options(<-ac -dfbar3>);
+is-deeply($capture3, \(:a, :c, :d, :foo(Array[Str].new(<bar3>))), 'Short options work');
 
 my $capture4 = $getopt.get-options(<--foo bar --fooo bar2 -f bar3 -ac --bar baz>);
 dies-ok( { main(|$capture4) }, 'Calling main (1) works');
