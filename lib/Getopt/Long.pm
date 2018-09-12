@@ -322,6 +322,15 @@ method get-options(@args is copy, :defaults(%hash) is copy) {
 	return \(|@list, |%hash);
 }
 
+our sub get-options-from(@args, *@options, :%defaults, *%config) is export {
+	my $getopt = Getopt::Long.new(|@options, |%config);
+	return $getopt.get-options(@args, :%defaults);
+}
+
+our sub get-options(*@options, :%defaults, *%config) is export {
+	return get-options-from(@*ARGS, |@options, :%defaults, |%config);
+}
+
 our sub MAIN_HELPER($retval = 0) is export {
 	my &m = callframe(1).my<&MAIN>;
 	return $retval unless &m;
