@@ -243,9 +243,8 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 	return self.bless(:$gnu-style, :$permute, :%options);
 }
 
-method get-options(@argv) {
-	my @args = @argv;
-	my (@list, %hash);
+method get-options(@args is copy, :defaults(%hash) is copy) {
+	my @list;
 	while @args {
 		my $head = @args.shift;
 
