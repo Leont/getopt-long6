@@ -331,8 +331,21 @@ our sub get-options(*@options, :%defaults, *%config) is export {
 	return get-options-from(@*ARGS, |@options, :%defaults, |%config);
 }
 
-our sub MAIN_HELPER($retval = 0) is export {
-	my &m = callframe(1).my<&MAIN>;
-	return $retval unless &m;
-	m(|Getopt::Long.new(&m).get-options(@*ARGS));
+my package EXPORT::DEFAULT {
+	if $*PERL.compiler.version after 2018.06 {
+		OUR::{'&MAIN_HELPER'} := anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
+			my $main = callframe(1).my<&MAIN>;
+			my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+			my $in := $*IN;
+			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
+			$main.(|$capture);
+		}
+	}
+	else {
+		OUR::{'&MAIN_HELPER'} := anon sub MAIN_HELPER($retval = 0) {
+			my $main = callframe(1).my<&MAIN>;
+			my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+			$main.(|$capture);
+		}
+	}
 }
