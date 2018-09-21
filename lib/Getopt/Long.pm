@@ -133,7 +133,7 @@ my grammar Argument {
 	}
 
 	token names {
-		[ $<name>=[\w+] ]+ % '|'
+		[ $<name>=[<[\w-]>+ | '?'] ]+ % '|'
 		{ make @<name>».Str.list }
 	}
 
