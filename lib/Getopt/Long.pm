@@ -335,17 +335,24 @@ my package EXPORT::DEFAULT {
 	if $*PERL.compiler.version after 2018.06 {
 		OUR::{'&MAIN_HELPER'} := anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
 			my $main = callframe(1).my<&MAIN>;
+			return $retval unless $main;
 			my $capture = Getopt::Long.new($main).get-options(@*ARGS);
-			my $in := $*IN;
-			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
-			$main.(|$capture);
+			if $in-is-args {
+				my $in := $*IN;
+				my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
+				$main(|$capture);
+			}
+			else {
+				$main(|$capture);
+			}
 		}
 	}
 	else {
 		OUR::{'&MAIN_HELPER'} := anon sub MAIN_HELPER($retval = 0) {
 			my $main = callframe(1).my<&MAIN>;
+			return $retval unless $main;
 			my $capture = Getopt::Long.new($main).get-options(@*ARGS);
-			$main.(|$capture);
+			$main(|$capture);
 		}
 	}
 }
