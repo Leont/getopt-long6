@@ -219,12 +219,25 @@ my %converter-for-type{Any:U} = (
 my sub parse-parameter(Parameter $param) {
 	my ($key) = my @names = $param.named_names;
 	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
-	my $converter = %converter-for-type{$type} // &null-converter;
 	my $store = %store-for{$param.sigil}.new(:$key, :$type);
-	my $arity = $param.sigil eq '$' && $param.type === Bool ?? 0..0 !! 1..1;
-	my %args = $arity == 0..0 ?? :default !! :$converter;
-	return @names.map: -> $name {
-		Option.new(:$name, :$store, :$arity, |%args);
+	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
+	my $store = %store-for{$param.sigil}.new(:key(@names[0]), :$type);
+	if $param.sigil eq '$' && $param.type === Bool {
+		return @names.flatmap: -> $name {
+			my @options;
+			@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
+			if $param.default {
+				@options.push: Option.new(:name("no$name") , :$store, :arity(0..0), :!default);
+				@options.push: Option.new(:name("no-$name"), :$store, :arity(0..0), :!default);
+			}
+			@options;
+		}
+	}
+	else {
+		my $converter = %converter-for-type{$type} // &null-converter;
+		return @names.map: -> $name {
+			Option.new(:$name, :$store, :arity(1..1), :$converter);
+		}
 	}
 }
 

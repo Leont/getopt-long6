@@ -89,4 +89,9 @@ my $getopt10 = Getopt::Long.new(<foo=i{1,2}>);
 my $capture20 = $getopt10.get-options(['--foo', '1', '2', '3']);
 is-deeply($capture20, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
 
+my $getopt12 = Getopt::Long.new(sub (Bool :$foo = True) { });
+
+my $capture22 = $getopt12.get-options(['--no-foo']);
+is-deeply($capture22, \(:foo(False)), 'negative argument detected');
+
 done-testing;
