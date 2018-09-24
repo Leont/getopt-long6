@@ -50,7 +50,7 @@ my sub rat-converter(Str:D $value --> Rat) {
 }
 
 my sub maybe-converter(Str:D $value --> Any) {
-	return $value ~~ / ^ '-'? \d+ $/ ?? IntStr($value.Int, $value) !! $value;
+	return val($value);
 }
 
 my role Store {
