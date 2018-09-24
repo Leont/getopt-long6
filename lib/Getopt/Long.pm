@@ -49,6 +49,10 @@ my sub rat-converter(Str:D $value --> Rat) {
 	return $value.Rat;
 }
 
+my sub num-converter(Str:D $value --> Num) {
+	return $value.Num;
+}
+
 my sub maybe-converter(Str:D $value --> Any) {
 	return val($value);
 }
@@ -212,6 +216,7 @@ multi method new(*@patterns, *%args) {
 my %converter-for-type{Any:U} = (
 	(Int) => &int-converter,
 	(Rat) => &rat-converter,
+	(Num) => &num-converter,
 	(Str) => &null-converter,
 	(Any) => &maybe-converter,
 );
