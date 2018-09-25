@@ -363,7 +363,7 @@ method get-options(@args is copy, :defaults(%hash) is copy) {
 			}
 		}
 	}
-	return \(|@list, |%hash);
+	return \(|@list.map(&val), |%hash);
 }
 
 our sub get-options-from(@args, *@options, :%defaults, *%config) is export {
