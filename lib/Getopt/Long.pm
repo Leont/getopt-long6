@@ -53,6 +53,10 @@ my sub num-converter(Str:D $value --> Num) {
 	return $value.Num;
 }
 
+my sub rat-num-converter(Str:D $value --> Real) {
+	return val($value) ~~ Rat|Int ?? $value.Rat !! $value.Num;
+}
+
 my sub maybe-converter(Str:D $value --> Any) {
 	return val($value);
 }
@@ -159,12 +163,13 @@ my grammar Argument {
 	my %converter-for-format = (
 		i => &int-converter,
 		s => &null-converter,
-		f => &rat-converter,
+		f => &rat-num-converter,
+		r => &rat-converter,
 		o => &extended-int-converter,
 	);
 
 	token type {
-		<[sifo]>
+		<[sifor]>
 		{ make %converter-for-format{$/} }
 	}
 
@@ -710,6 +715,13 @@ string (a zero, optionally followed by '0', '1', .. '7'), or a
 hexadecimal string (C<0x> followed by '0' .. '9', 'a' .. 'f', case
 insensitive), or a binary string (C<0b> followed by a series of '0'
 and '1').
+
+=end item2
+
+=begin item2
+r
+
+Rational number. For example C<3.14>.
 
 =end item2
 
