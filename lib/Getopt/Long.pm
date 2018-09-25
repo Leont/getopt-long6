@@ -122,21 +122,25 @@ my %store-for = (
 	'$' => ScalarStore,
 );
 
+my sub make-option(@names, $multi-class, $multi-args, $arity, %options-args, $negatable) {
+	return @names.flatmap: -> $name {
+		my $store = $multi-class.new(|%$multi-args, :key(@names[0]));
+		my @options;
+		@options.push: Option.new(:$name, :$store, :$arity, :default, |%options-args);
+		if $negatable {
+			@options.push: Option.new(:name("no$name"), :$store, :$arity, |%options-args, :!default);
+			@options.push: Option.new(:name("no-$name"), :$store, :$arity, |%options-args, :!default);
+		}
+		@options;
+	}
+}
+
 my grammar Argument {
 	token TOP {
 		<names> <argument>
 		{
-			my ($multi-class, $multi-args, $arity, %options-args, $negatable) := $<argument>.ast;
-			make $<names>.ast.map: -> $name {
-				my $store = $multi-class.new(|%$multi-args, :key($<names>.ast[0]));
-				my @options;
-				@options.push: Option.new(:$name, :$store, :$arity, :default, |%options-args);
-				if $negatable {
-					@options.push: Option.new(:name("no$name"), :$store, :$arity, |%options-args, :!default);
-					@options.push: Option.new(:name("no-$name"), :$store, :$arity, |%options-args, :!default);
-				}
-				|@options;
-			}
+			my ($multi-class, $multi-args, $arity, $options-args, $negatable) = $<argument>.ast;
+			make make-option($<names>.ast, $multi-class, $multi-args, $arity, $options-args, $negatable);
 		}
 	}
 
@@ -226,27 +230,44 @@ my %converter-for-type{Any:U} = (
 	(Any) => &maybe-converter,
 );
 
+my role Formatted {
+	has Str:D $.format is required;
+}
+
+multi sub trait_mod:<is>(Parameter $param, Str:D :getopt($format)!) is export {
+	$param does Formatted(:$format);
+}
+
 my sub parse-parameter(Parameter $param) {
-	my ($key) = my @names = $param.named_names;
-	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
-	my $store = %store-for{$param.sigil}.new(:$key, :$type);
-	my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
-	my $store = %store-for{$param.sigil}.new(:key(@names[0]), :$type);
-	if $param.sigil eq '$' && $param.type === Bool {
-		return @names.flatmap: -> $name {
-			my @options;
-			@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
-			if $param.default {
-				@options.push: Option.new(:name("no$name") , :$store, :arity(0..0), :!default);
-				@options.push: Option.new(:name("no-$name"), :$store, :arity(0..0), :!default);
-			}
-			@options;
+	my @names = $param.named_names;
+	if $param ~~ Formatted {
+		my $pattern = $param.format;
+		if Argument.parse($pattern, :rule('argument')) -> $match {
+			return @($match.ast).flatmap(&make-option.assuming(@names))
+		}
+		else {
+			die "Couldn't parse '$pattern'";
 		}
 	}
 	else {
-		my $converter = %converter-for-type{$type} // &null-converter;
-		return @names.map: -> $name {
-			Option.new(:$name, :$store, :arity(1..1), :$converter);
+		my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
+		my $store = %store-for{$param.sigil}.new(:key(@names[0]), :$type);
+		if $param.sigil eq '$' && $param.type === Bool {
+			return @names.flatmap: -> $name {
+				my @options;
+				@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
+				if $param.default {
+					@options.push: Option.new(:name("no$name") , :$store, :arity(0..0), :!default);
+					@options.push: Option.new(:name("no-$name"), :$store, :arity(0..0), :!default);
+				}
+				@options;
+			}
+		}
+		else {
+			my $converter = %converter-for-type{$type} // &null-converter;
+			return @names.map: -> $name {
+				Option.new(:$name, :$store, :arity(1..1), :$converter);
+			}
 		}
 	}
 }
@@ -511,6 +532,10 @@ C<< $options<verbose> >> by setting its value to C<False>.
 An incremental option is specified with a plus C<+> after the
 option name:
 
+    sub MAIN(Int :$verbose is getopt('+')) { ... }
+
+or
+
     my $options = get-options('verbose+');
 
 Using C<--verbose> on the command line will increment the value of
@@ -594,6 +619,11 @@ repeat specifiers that can be used with regular expression patterns.
 For example, the above command line would be handled as follows:
 
     get-options('coordinates=f{2}', 'rgbcolor=i{3}');
+
+or
+
+    sub MAIN(Rat :@coordinates is getopt('f{2}'),
+      Int :@rgbcolor is getopt('i{3}'))
 
 It is also possible to specify the minimal and maximal number of
 arguments an option takes. C<foo=s{2,4}> indicates an option that

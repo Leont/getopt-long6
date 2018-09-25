@@ -89,6 +89,12 @@ my $getopt10 = Getopt::Long.new(<foo=i{1,2}>);
 my $capture20 = $getopt10.get-options(['--foo', '1', '2', '3']);
 is-deeply($capture20, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
 
+my $getopt11 = Getopt::Long.new(sub (:$foo is getopt("=s%")) {});
+
+my $capture21 = $getopt11.get-options(<--foo bar=buz --foo qaz=quz>);
+my Str %expected = :bar('buz'), :qaz('quz');
+is-deeply($capture21, \(:foo(%expected)), 'getopt trait works');
+
 my $getopt12 = Getopt::Long.new(sub (Bool :$foo = True) { });
 
 my $capture22 = $getopt12.get-options(['--no-foo']);
