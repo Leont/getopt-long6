@@ -234,7 +234,7 @@ my role Formatted {
 	has Str:D $.format is required;
 }
 
-multi sub trait_mod:<is>(Parameter $param, Str:D :getopt($format)!) is export {
+multi sub trait_mod:<is>(Parameter $param, Str:D :getopt($format)!) is export(:DEFAULT, :traits) {
 	$param does Formatted(:$format);
 }
 
@@ -366,40 +366,35 @@ method get-options(@args is copy, :defaults(%hash) is copy) {
 	return \(|@list.map(&val), |%hash);
 }
 
-our sub get-options-from(@args, *@options, :%defaults, *%config) is export {
+our sub get-options-from(@args, *@options, :%defaults, *%config) is export(:DEFAULT, :functions) {
 	my $getopt = Getopt::Long.new(|@options, |%config);
 	return $getopt.get-options(@args, :%defaults);
 }
 
-our sub get-options(*@options, :%defaults, *%config) is export {
+our sub get-options(*@options, :%defaults, *%config) is export(:DEFAULT, :functions) {
 	return get-options-from(@*ARGS, |@options, :%defaults, |%config);
 }
 
-my package EXPORT::DEFAULT {
-	if $*PERL.compiler.version after 2018.06 {
-		OUR::{'&MAIN_HELPER'} := anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
-			my $main = callframe(1).my<&MAIN>;
-			return $retval unless $main;
-			my $capture = Getopt::Long.new($main).get-options(@*ARGS);
-			if $in-is-args {
-				my $in := $*IN;
-				my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
-				$main(|$capture);
-			}
-			else {
-				$main(|$capture);
-			}
+our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
+	?? anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
+		my $main = callframe(1).my<&MAIN>;
+		return $retval unless $main;
+		my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+		if $in-is-args {
+			my $in := $*IN;
+			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
+			$main(|$capture);
 		}
-	}
-	else {
-		OUR::{'&MAIN_HELPER'} := anon sub MAIN_HELPER($retval = 0) {
-			my $main = callframe(1).my<&MAIN>;
-			return $retval unless $main;
-			my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+		else {
 			$main(|$capture);
 		}
 	}
-}
+	!! anon sub MAIN_HELPER($retval = 0) {
+		my $main = callframe(1).my<&MAIN>;
+		return $retval unless $main;
+		my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+		$main(|$capture);
+	}
 
 =begin pod
 
