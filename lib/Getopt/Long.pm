@@ -108,12 +108,11 @@ my class Option {
 	}
 }
 
-has Bool:D $!gnu-style is required;
 has Bool:D $!permute is required;
 has Bool:D $!bundling is required;
 has Option:D %!options;
 
-submethod BUILD(:$!gnu-style = True, :named-anywhere(:$!permute) = False, :$!bundling = True, :%!options) { }
+submethod BUILD(:named-anywhere(:$!permute) = False, :$!bundling = True, :%!options) { }
 
 my %store-for = (
 	'%' => HashStore,
@@ -342,7 +341,7 @@ method get-options(@args is copy, :defaults(%hash) is copy) {
 				die "Unknown option $<name>";
 			}
 		}
-		elsif $!gnu-style && $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
+		elsif $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
 			if %!options{$<name>} -> $option {
 				die  "$<name> doesn't take arguments" if $option.arity.max == 0;
 				take-value($option, ~$<value>);
@@ -903,15 +902,6 @@ arguments and option settings are:
     -l, --l          l
     -all             a, l
     --all            all
-
-=end item
-
-=begin item
-gnu-style (default: enabled)
-
-C<gnu-style> controls whether C<--opt=> is allowed, and what it should do. Without C<gnu-styl>, C<--opt=> gives an error. With C<gnu_compat>, C<--opt=> will give option opt and empty value. This is the way GNU getopt_long() does it.
-
-Note that C<--opt value> is still accepted.
 
 =end item
 
