@@ -113,7 +113,7 @@ has Bool:D $!permute is required;
 has Bool:D $!bundling is required;
 has Option:D %!options;
 
-submethod BUILD(:$!gnu-style = True, :$!permute = False, :$!bundling = True, :%!options) { }
+submethod BUILD(:$!gnu-style = True, :named-anywhere(:$!permute) = False, :$!bundling = True, :%!options) { }
 
 my %store-for = (
 	'%' => HashStore,
@@ -272,7 +272,7 @@ my sub parse-parameter(Parameter $param) {
 	}
 }
 
-multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False) {
+multi method new(Sub $main, *%config) {
 	my %options;
 	for $main.candidates -> $candidate {
 		for $candidate.signature.params.grep(*.named) -> $param {
@@ -284,7 +284,7 @@ multi method new(Sub $main, Bool:D :$gnu-style = True, Bool:D :$permute = False)
 			}
 		}
 	}
-	return self.bless(:$gnu-style, :$permute, :%options);
+	return self.bless(|%config, :%options);
 }
 
 method get-options(@args is copy, :defaults(%hash) is copy) {
@@ -379,7 +379,8 @@ our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018
 	?? anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
 		my $main = callframe(1).my<&MAIN>;
 		return $retval unless $main;
-		my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+		my %options = callframe(1).my<%*SUB-MAIN-OPTS> // {};
+		my $capture = Getopt::Long.new($main, |%options).get-options(@*ARGS);
 		if $in-is-args {
 			my $in := $*IN;
 			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
@@ -392,7 +393,8 @@ our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018
 	!! anon sub MAIN_HELPER($retval = 0) {
 		my $main = callframe(1).my<&MAIN>;
 		return $retval unless $main;
-		my $capture = Getopt::Long.new($main).get-options(@*ARGS);
+		my %options = callframe(1).my<%*SUB-MAIN-OPTS> // {};
+		my $capture = Getopt::Long.new($main, |%options).get-options(@*ARGS);
 		$main(|$capture);
 	}
 
