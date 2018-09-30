@@ -375,28 +375,26 @@ our sub get-options(*@options, :%defaults, *%config) is export(:DEFAULT, :functi
 	return get-options-from(@*ARGS, |@options, :%defaults, |%config);
 }
 
+my sub call-main(CallFrame $callframe, $retval) {
+	my $main = $callframe.my<&MAIN>;
+	return $retval unless $main;
+	my %options = $callframe.my<%*SUB-MAIN-OPTS> // {};
+	my $capture = Getopt::Long.new($main, |%options).get-options(@*ARGS);
+	$main(|$capture);
+}
+
 our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
 	?? anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
-		my $main = callframe(1).my<&MAIN>;
-		return $retval unless $main;
-		my %options = callframe(1).my<%*SUB-MAIN-OPTS> // {};
-		my $capture = Getopt::Long.new($main, |%options).get-options(@*ARGS);
 		if $in-is-args {
 			my $in := $*IN;
 			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
-			$main(|$capture);
+			call-main(callframe(1), $retval);
 		}
 		else {
-			$main(|$capture);
+			call-main(callframe(1), $retval);
 		}
 	}
-	!! anon sub MAIN_HELPER($retval = 0) {
-		my $main = callframe(1).my<&MAIN>;
-		return $retval unless $main;
-		my %options = callframe(1).my<%*SUB-MAIN-OPTS> // {};
-		my $capture = Getopt::Long.new($main, |%options).get-options(@*ARGS);
-		$main(|$capture);
-	}
+	!! anon sub MAIN_HELPER($retval = 0) { call-main(callframe(1), $retval); }
 
 =begin pod
 
