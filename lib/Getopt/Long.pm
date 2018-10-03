@@ -63,31 +63,41 @@ my sub maybe-converter(Str:D $value --> Any) {
 
 my role Store {
 	has Str:D $.key is required;
-	has Any:U $.type = Any;
-	method store($value, $hash) { ... }
+	has Sub:D $.converter = &null-converter;
+	method store-convert($value, $hash) {
+		self.store-direct($!converter($value), $hash);
+	}
+	method store-direct($value, $hash) { ... }
 }
 
 my class ScalarStore does Store {
-	method store(Any:D $value, Hash:D $hash) {
+	method store-direct(Any:D $value, Hash:D $hash) {
 		$hash{$!key} = $value;
 	}
 }
 
 my class CountStore does Store {
-	method store(Any:D $value, Hash:D $hash) {
+	method store-direct(Any:D $value, Hash:D $hash) {
 		$hash{$!key} += $value;
 	}
 }
 
 my class ArrayStore does Store {
-	method store(Any:D $value, Hash:D $hash) {
+	has Any:U $.type = $!converter.returns;
+	method store-direct(Any:D $value, Hash:D $hash) {
 		$hash{$!key} //= Array[$!type].new;
 		$hash{$!key}.push($value);
 	}
 }
 
 my class HashStore does Store {
-	method store(Any:D $pair, Hash:D $hash) {
+	has Any:U $.type = $!converter.returns;
+	method store-convert(Any:D $pair, Hash:D $hash) {
+		my ($key, $value) = $pair.split('=', 2);
+		$hash{$!key} //= Hash[$!type].new;
+		$hash{$!key}{$key} = $!converter($value);
+	}
+	method store-direct(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
 		$hash{$!key} //= Hash[$!type].new;
 		$hash{$!key}{$key} = $value;
@@ -97,14 +107,13 @@ my class HashStore does Store {
 my class Option {
 	has Str:D $.name is required;
 	has Range:D $.arity is required;
-	has Sub:D $.converter = &null-converter;
 	has Store:D $.store is required;
 	has Any $.default;
 	method store(Any:D $raw, Hash:D $hash) {
-		$!store.store($!converter($raw), $hash);
+		$!store.store-convert($raw, $hash);
 	}
 	method store-default(Hash:D $hash) {
-		$!store.store($!default, $hash);
+		$!store.store-direct($!default, $hash);
 	}
 }
 
@@ -118,7 +127,6 @@ my %store-for = (
 	'%' => HashStore,
 	'@' => ArrayStore,
 	''  => ScalarStore,
-	'$' => ScalarStore,
 );
 
 my sub make-option(@names, $multi-class, $multi-args, $arity, %options-args, $negatable) {
@@ -178,7 +186,7 @@ my grammar Argument {
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %store-for{~$<repeat>}, { :type($<type>.ast.returns) }, 1..1, { :converter($<type>.ast) }, False ] }
+		{ make [ %store-for{~$<repeat>}, { :converter($<type>.ast) }, 1..1, { }, False ] }
 	}
 
 	rule range {
@@ -187,22 +195,22 @@ my grammar Argument {
 	}
 	token equals-more {
 		'=' <type> '{' <range>'}'
-		{ make [ ArrayStore, { :type($<type>.ast.returns) }, $<range>.ast, { :converter($<type>.ast) }, False ] }
+		{ make [ ArrayStore, { :converter($<type>.ast) }, $<range>.ast, { }, False ] }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ ScalarStore, {}, 0..1, { :converter($<type>.ast), :default($<type>.ast.returns.new) }, False ] }
+		{ make [ ScalarStore, { :converter($<type>.ast) }, 0..1, { :default($<type>.ast.returns.new) }, False ] }
 	}
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ ScalarStore, {}, 0..1, { :converter(&int-converter), :default($<num>.Int) }, False ] }
+		{ make [ ScalarStore, { :converter(&int-converter) }, 0..1, { :default($<num>.Int) }, False ] }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ CountStore, {}, 0..1, { :converter(&int-converter), :default(1) }, False ] }
+		{ make [ CountStore, { :converter(&int-converter) }, 0..1, { :default(1) }, False ] }
 	}
 }
 
@@ -249,23 +257,33 @@ my sub parse-parameter(Parameter $param) {
 		}
 	}
 	else {
-		my $type = $param.sigil eq '$' ?? $param.type !! $param.type.of;
-		my $store = %store-for{$param.sigil}.new(:key(@names[0]), :$type);
-		if $param.sigil eq '$' && $param.type === Bool {
-			return @names.flatmap: -> $name {
-				my @options;
-				@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
-				if $param.default {
-					@options.push: Option.new(:name("no$name") , :$store, :arity(0..0), :!default);
-					@options.push: Option.new(:name("no-$name"), :$store, :arity(0..0), :!default);
+		my $key = @names[0];
+		if $param.sigil eq '$' {
+			my $type = $param.type;
+			my $store = ScalarStore.new(:$key);
+			if $param.type === Bool {
+				return @names.flatmap: -> $name {
+					my @options;
+					@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
+					if $param.default {
+						@options.push: Option.new(:name("no$name") , :$store, :arity(0..0), :!default);
+						@options.push: Option.new(:name("no-$name"), :$store, :arity(0..0), :!default);
+					}
+					@options;
 				}
-				@options;
+			}
+			else {
+				return @names.map: -> $name {
+					Option.new(:$name, :$store, :arity(1..1));
+				}
 			}
 		}
 		else {
+			my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
 			my $converter = %converter-for-type{$type} // &null-converter;
+			my $store = %store-for{$param.sigil}.new(:$key, :$type, :$converter);
 			return @names.map: -> $name {
-				Option.new(:$name, :$store, :arity(1..1), :$converter);
+				Option.new(:$name, :$store, :arity(1..1));
 			}
 		}
 	}
