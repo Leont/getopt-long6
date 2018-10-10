@@ -11,7 +11,7 @@ multi main(*@, Str :fooo(:f(:@foo)), Bool :$bar) {
 }
 multi main(*@, Bool :$a!, Bool :$c!, Bool :$d) {
 }
-my $getopt = Getopt::Long.new(&main);
+my $getopt = Getopt::Long.new-from-sub(&main);
 
 my $capture2 = $getopt.get-options(<--foo bar --fooo bar2 --bar baz>);
 is-deeply($capture2, \('baz', :bar, :foo(Array[Str].new(<bar bar2>))), 'Common argument mix works (2)');
@@ -71,13 +71,13 @@ is-deeply($capture19, \(val('3'), :foo(Array[Int].new(1, 2))), 'Repeat specifier
 my $capture20 = get-options-from(['--foo', '1', '2', '3'], <foo=i{1,2}>);
 is-deeply($capture20, \(val('3'), :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
 
-my $getopt2 = Getopt::Long.new(sub (:$foo is getopt("=s%")) {});
+my $getopt2 = Getopt::Long.new-from-sub(sub (:$foo is getopt("=s%")) {});
 
 my $capture21 = $getopt2.get-options(<--foo bar=buz --foo qaz=quz>);
 my Str %expected = :bar('buz'), :qaz('quz');
 is-deeply($capture21, \(:foo(%expected)), 'getopt trait works');
 
-my $getopt3 = Getopt::Long.new(sub (Bool :$foo = True) { });
+my $getopt3 = Getopt::Long.new-from-sub(sub (Bool :$foo = True) { });
 
 my $capture22 = $getopt3.get-options(['--no-foo']);
 is-deeply($capture22, \(:foo(False)), 'negative argument detected');

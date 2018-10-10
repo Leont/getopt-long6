@@ -214,7 +214,7 @@ my grammar Argument {
 	}
 }
 
-multi method new(*@patterns, *%args) {
+method new-from-patterns(@patterns, *%args) {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
@@ -226,7 +226,7 @@ multi method new(*@patterns, *%args) {
 			die "Couldn't parse '$pattern'";
 		}
 	}
-	return self.bless(|%args, :%options);
+	return self.new(|%args, :%options);
 }
 
 my %converter-for-type{Any:U} = (
@@ -289,7 +289,7 @@ my sub parse-parameter(Parameter $param) {
 	}
 }
 
-multi method new(Sub $main, *%config) {
+method new-from-sub(Sub $main, |config) {
 	my %options;
 	for $main.candidates -> $candidate {
 		for $candidate.signature.params.grep(*.named) -> $param {
@@ -301,7 +301,7 @@ multi method new(Sub $main, *%config) {
 			}
 		}
 	}
-	return self.bless(|%config, :%options);
+	return self.new(|config, :%options);
 }
 
 method get-options(@args is copy, :defaults(%hash) is copy) {
@@ -383,13 +383,13 @@ method get-options(@args is copy, :defaults(%hash) is copy) {
 	return \(|@list.map(&val), |%hash);
 }
 
-our sub get-options-from(@args, *@options, :%defaults, *%config) is export(:DEFAULT, :functions) {
-	my $getopt = Getopt::Long.new(|@options, |%config);
+our sub get-options-from(@args, :%defaults, *@options, *%config) is export(:DEFAULT, :functions) {
+	my $getopt = Getopt::Long.new-from-patterns(@options, |%config);
 	return $getopt.get-options(@args, :%defaults);
 }
 
-our sub get-options(*@options, :%defaults, *%config) is export(:DEFAULT, :functions) {
-	return get-options-from(@*ARGS, |@options, :%defaults, |%config);
+our sub get-options(|args) is export(:DEFAULT, :functions) {
+	return get-options-from(@*ARGS, |args);
 }
 
 my sub call-main(CallFrame $callframe, $retval) {
@@ -823,13 +823,13 @@ option will be incremented.
 Getopt::Long can be used in an object oriented way as well:
 
     use Getopt::Long;
-    my $p = Getopt::Long.new(@options);
+    my $p = Getopt::Long.new-from-patterns(@options);
     my $o = $p.get-options(@args) ...
 
 Configuration options can be passed to the constructor as named
 arguments:
 
-    $p = Getopt::Long.new(@options, :!permute);
+    $p = Getopt::Long.new-from-patterns(@options, :!permute);
 
 =head2 Parsing options from an arbitrary array
 
