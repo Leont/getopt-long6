@@ -82,4 +82,7 @@ my $getopt3 = Getopt::Long.new-from-sub(sub (Bool :$foo = True) { });
 my $capture22 = $getopt3.get-options(['--no-foo']);
 is-deeply($capture22, \(:foo(False)), 'negative argument detected');
 
+get-options-from(<--foo 1 --foo 2>, 'foo=i@' => \my @foo);
+is-deeply(@foo, [1, 2], 'Pair arguments');
+
 done-testing;

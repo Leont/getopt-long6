@@ -304,7 +304,7 @@ method new-from-sub(Sub $main, |config) {
 	return self.new(|config, :%options);
 }
 
-method get-options(@args is copy, :defaults(%hash) is copy) {
+method get-options(@args is copy, :%hash) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -383,9 +383,21 @@ method get-options(@args is copy, :defaults(%hash) is copy) {
 	return \(|@list.map(&val), |%hash);
 }
 
-our sub get-options-from(@args, :%defaults, *@options, *%config) is export(:DEFAULT, :functions) {
+our sub get-options-from(@args, *@elements, *%config) is export(:DEFAULT, :functions) {
+	my %hash := @elements && @elements[0] ~~ Hash ?? @elements.shift !! {};
+	my @options;
+	for @elements -> $element {
+		when $element ~~ Str {
+			@options.push: $element;
+		}
+		when $element ~~ Pair {
+			@options.push: $element.key;
+			my ($key) = $element.key ~~ / ^ (\w+) /[0];
+			%hash{$key} := $element.value[0];
+		}
+	}
 	my $getopt = Getopt::Long.new-from-patterns(@options, |%config);
-	return $getopt.get-options(@args, :%defaults);
+	return $getopt.get-options(@args, :%hash);
 }
 
 our sub get-options(|args) is export(:DEFAULT, :functions) {
