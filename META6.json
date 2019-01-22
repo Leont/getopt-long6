@@ -1,14 +1,19 @@
 {
-    "perl" : "6.*",
-    "name" : "Getopt::Long",
-    "version" : "0.0.2",
-    "description" : "A powerful getopt implementation",
-    "provides" : {
-        "Getopt::Long"       : "lib/Getopt/Long.pm"
-    },
-    "author" : "Leon Timmermans",
-    "depends" : [ ],
-    "test-depends" : [ ],
-    "source-url" : "https://github.com/Leont/getopt-long6.git",
-    "license" : "Artistic-2.0"
+  "authors" : [
+    "Leon Timmermans"
+  ],
+  "build-depends" : [ ],
+  "depends" : [ ],
+  "description" : "A powerful getopt implementation",
+  "license" : "Artistic-2.0",
+  "name" : "Getopt::Long",
+  "perl" : "6.*",
+  "provides" : {
+    "Getopt::Long" : "lib/Getopt/Long.pm"
+  },
+  "resources" : [ ],
+  "source-url" : "https://github.com/Leont/getopt-long6.git",
+  "tags" : [ ],
+  "test-depends" : [ ],
+  "version" : "0.0.2"
 }
