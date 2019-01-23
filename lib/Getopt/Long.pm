@@ -290,7 +290,17 @@ my sub parse-parameter(Parameter $param) {
 	}
 }
 
+my role Parsed {
+	has Getopt::Long:D $.getopt is required;
+}
+
+multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
+	$sub does Parsed(Getopt::Long.new-from-sub($sub));
+}
+
 method new-from-sub(Sub $main) {
+	return $main.getopt if $main ~~ Parsed;
+
 	my %options;
 	for $main.candidates -> $candidate {
 		for $candidate.signature.params.grep(*.named) -> $param {
