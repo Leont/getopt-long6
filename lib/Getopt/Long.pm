@@ -117,11 +117,9 @@ my class Option {
 	}
 }
 
-has Bool:D $!permute is required;
-has Bool:D $!bundling is required;
 has Option:D %!options;
 
-submethod BUILD(:named-anywhere(:$!permute) = False, :$!bundling = True, :%!options) { }
+submethod BUILD(:%!options) { }
 
 my %store-for = (
 	'%' => HashStore,
@@ -289,7 +287,7 @@ my sub parse-parameter(Parameter $param) {
 	}
 }
 
-method new-from-sub(Sub $main, |config) {
+method new-from-sub(Sub $main) {
 	my %options;
 	for $main.candidates -> $candidate {
 		for $candidate.signature.params.grep(*.named) -> $param {
@@ -301,10 +299,10 @@ method new-from-sub(Sub $main, |config) {
 			}
 		}
 	}
-	return self.new(|config, :%options);
+	return self.new(:%options);
 }
 
-method get-options(@args is copy, :%hash) {
+method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$bundling = True) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -334,7 +332,7 @@ method get-options(@args is copy, :%hash) {
 			}
 		}
 
-		if $!bundling && $head ~~ / ^ '-' $<values>=[\w <[\w-]>*] $ / -> $/ {
+		if $bundling && $head ~~ / ^ '-' $<values>=[\w <[\w-]>*] $ / -> $/ {
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
@@ -371,7 +369,7 @@ method get-options(@args is copy, :%hash) {
 			}
 		}
 		else {
-			if $!permute {
+			if $permute {
 				@list.push: $head;
 			}
 			else {
@@ -396,8 +394,8 @@ our sub get-options-from(@args, *@elements, *%config) is export(:DEFAULT, :funct
 			%hash{$key} := $element.value[0];
 		}
 	}
-	my $getopt = Getopt::Long.new-from-patterns(@options, |%config);
-	return $getopt.get-options(@args, :%hash);
+	my $getopt = Getopt::Long.new-from-patterns(@options);
+	return $getopt.get-options(@args, |%config, :%hash);
 }
 
 our sub get-options(|args) is export(:DEFAULT, :functions) {
