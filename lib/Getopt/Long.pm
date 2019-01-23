@@ -130,7 +130,7 @@ my %store-for = (
 );
 
 my sub make-option(@names, $multi-class, $multi-args, $arity, %options-args, $negatable) {
-	return @names.flatmap: -> $name {
+	return flat @names.map: -> $name {
 		my $store = $multi-class.new(|%$multi-args, :key(@names[0]));
 		my @options;
 		@options.push: Option.new(:$name, :$store, :$arity, :default, |%options-args);
@@ -250,7 +250,7 @@ my sub parse-parameter(Parameter $param) {
 	if $param ~~ Formatted {
 		my $pattern = $param.format;
 		if Argument.parse($pattern, :rule('argument')) -> $match {
-			return @($match.ast).flatmap(&make-option.assuming(@names))
+			return @($match.ast).map(&make-option.assuming(@names)).flat;
 		}
 		else {
 			die "Couldn't parse '$pattern'";
@@ -262,7 +262,7 @@ my sub parse-parameter(Parameter $param) {
 			my $type = $param.type;
 			my $store = ScalarStore.new(:$key);
 			if $param.type === Bool {
-				return @names.flatmap: -> $name {
+				return flat @names.map: -> $name {
 					my @options;
 					@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
 					if $param.default {
