@@ -434,10 +434,9 @@ Getopt::Long
 =head1 SYNOPSIS
 
   use Getopt::Long;
-  my $capture = get-options("length=i" # numeric
-              "file=s"    # string
-              "verbose"); # flag
-  if $capture<verbose> { ... }
+  get-options("length=i" => \my $length, # numeric
+              "file=s"   => \my $file    # string
+              "verbose"  => \my $verbose); # flag
 
 or
 
@@ -518,7 +517,7 @@ Handling simple options is straightforward:
 
 or:
 
-    my $options = get-options('verbose', 'all');
+    get-options('verbose' => \my $verbose, 'all' => \my $all);
 
 The call to C<get-options()> parses the command line arguments that are
 present in C<@*ARGS> and sets the option variable to the value C<True>
@@ -526,11 +525,11 @@ if the option did occur on the command line. Otherwise, the option
 variable is not touched. Setting the option value to true is often
 called I<enabling> the option.
 
-The option name as specified to the get-options() function is called
+The option name as specified to the C<get-options()> function is called
 the option I<specification>. Later we'll see that this specification
 can contain more than just the option name.
 
-get-options() will return a C<Capture> if the command line could be
+C<get-options()> will return a C<Capture> if the command line could be
 processed successfully. Otherwise, it will throw an error using
 die().
 
@@ -546,10 +545,14 @@ option name or a default value for C<MAIN> argument:
 
 or:
 
+    get-options('verbose!' => \my $verbose);
+
+or:
+
     my $options = get-options('verbose!');
 
 Now, using C<--verbose> on the command line will enable
-C<< $options<verbose> >>, as expected. But it is also allowed to use
+C<$verbose>, as expected. But it is also allowed to use
 C<--noverbose> or C<--no-verbose>, which will disable
 C<< $options<verbose> >> by setting its value to C<False>.
 
@@ -557,6 +560,10 @@ An incremental option is specified with a plus C<+> after the
 option name:
 
     sub MAIN(Int :$verbose is getopt('+')) { ... }
+
+or:
+
+   get-options('verbose+' => \my $verbose);
 
 or
 
@@ -599,6 +606,10 @@ valid command line option itself.
     sub MAIN(Str :$tag) { ... }
 
 or
+
+    get-options('tag=s' => \my $tag);
+
+or
     my %options = get-options('tag=s');
 
 In the option specification, the option name is followed by an equals
@@ -624,9 +635,13 @@ You can specify that the option can have multiple values by adding a
 
 or
 
+    get-options('library=s@' => \my @libraries);
+
+or
+
     my $options = get-options('library=s@');
 
-Used with the example above, C<$options<library>> would
+Used with the example above, C<@libraries>/C<$options<library>> would
 contain two strings upon completion: C<"lib/stdlib"> and
 C<"lib/extlib">, in that order. It is also possible to specify that
 only integer or floating point numbers are acceptable values.
@@ -642,12 +657,16 @@ specification. Repeat specifiers are very similar to the C<{...}>
 repeat specifiers that can be used with regular expression patterns.
 For example, the above command line would be handled as follows:
 
-    get-options('coordinates=f{2}', 'rgbcolor=i{3}');
+    my $options = get-options('coordinates=f{2}', 'rgbcolor=i{3}');
 
 or
 
     sub MAIN(Rat :@coordinates is getopt('f{2}'),
       Int :@rgbcolor is getopt('i{3}'))
+
+
+    get-options('coordinates=f{2}' => \my @coordinates,
+      'rgbcolor=i{3}' => \my @rgbcolor);
 
 It is also possible to specify the minimal and maximal number of
 arguments an option takes. C<foo=s{2,4}> indicates an option that
@@ -663,16 +682,20 @@ adding a "%":
 
 or
 
+    get-options("define=s%" => \my %define);
+
+or
+
     my $options = get-options("define=s%");
 
 When used with command line options:
 
     --define os=linux --define vendor=redhat
 
-the hash C<< $options<define> >> will contain two keys, C<"os">
-with value C<"linux"> and C<"vendor"> with value C<"redhat">. It is
-also possible to specify that only integer or floating point numbers
-are acceptable values. The keys are always taken to be strings.
+the hash C<%defines> or C<< $options<define> >> will contain two keys,
+C<"os"> with value C<"linux"> and C<"vendor"> with value C<"redhat">.
+It is also possible to specify that only integer or floating point
+numbers are acceptable values. The keys are always taken to be strings.
 
 =head2 Options with multiple names
 
@@ -683,6 +706,10 @@ specification, separated by vertical bar C<|> characters. To implement
 the above example:
 
     sub MAIN(:height(:$length)) { ... }
+
+or
+
+    get-options('length|height=f' => \my $length);
 
 or
 
