@@ -411,8 +411,14 @@ our sub call-with-getopt(&func, @args, %options?, :$overwrite) is export(:DEFAUL
 my sub call-main(CallFrame $callframe, $retval) {
 	my $main = $callframe.my<&MAIN>;
 	return $retval unless $main;
-	my %options = $callframe.my<%*SUB-MAIN-OPTS> // {};
+	my %options = %*SUB-MAIN-OPTS // {};
 	return call-with-getopt($main, @*ARGS, %options, :overwrite);
+}
+
+our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
+	my %options = %*SUB-MAIN-OPTS // {};
+	return Getopt::Long.new-from-sub($func).get-options(@args, |%options, :write-args(@args));
+	CATCH { note .message; &*EXIT(2) };
 }
 
 our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
