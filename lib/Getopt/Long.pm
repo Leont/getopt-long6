@@ -302,7 +302,7 @@ method new-from-sub(Sub $main) {
 	return self.new(:%options);
 }
 
-method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$bundling = True) {
+method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$bundling = True, :$write-args) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -378,10 +378,11 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			}
 		}
 	}
+	@$write-args = @list if $write-args;
 	return \(|@list.map(&val), |%hash);
 }
 
-our sub get-options-from(@args, *@elements, *%config) is export(:DEFAULT, :functions) {
+our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DEFAULT, :functions) {
 	my %hash := @elements && @elements[0] ~~ Hash ?? @elements.shift !! {};
 	my @options;
 	for @elements -> $element {
@@ -395,15 +396,15 @@ our sub get-options-from(@args, *@elements, *%config) is export(:DEFAULT, :funct
 		}
 	}
 	my $getopt = Getopt::Long.new-from-patterns(@options);
-	return $getopt.get-options(@args, |%config, :%hash);
+	return $getopt.get-options(@args, |%config, :%hash, :write-args($overwrite ?? @args !! Any));
 }
 
 our sub get-options(|args) is export(:DEFAULT, :functions) {
-	return get-options-from(@*ARGS, |args);
+	return get-options-from(@*ARGS, :overwrite, |args);
 }
 
-our sub call-with-getopt(&func, @args, %options?) is export(:DEFAULT, :functions) {
-	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options);
+our sub call-with-getopt(&func, @args, %options?, :$overwrite) is export(:DEFAULT, :functions) {
+	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options, :write-args($overwrite ?? @args !! Any));
 	return func(|$capture);
 }
 
@@ -411,7 +412,7 @@ my sub call-main(CallFrame $callframe, $retval) {
 	my $main = $callframe.my<&MAIN>;
 	return $retval unless $main;
 	my %options = $callframe.my<%*SUB-MAIN-OPTS> // {};
-	return call-with-getopt($main, @*ARGS, %options);
+	return call-with-getopt($main, @*ARGS, %options, :overwrite);
 }
 
 our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
@@ -884,7 +885,7 @@ used to parse options from an arbitrary array.
 The following two calls behave identically:
 
     $ret = get-options( ... );
-    $ret = get-options-from(@*ARGS, ... );
+    $ret = get-options-from(@*ARGS, :overwrite, ... );
 
 =head2 Bundling
 
