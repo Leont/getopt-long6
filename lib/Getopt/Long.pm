@@ -402,12 +402,16 @@ our sub get-options(|args) is export(:DEFAULT, :functions) {
 	return get-options-from(@*ARGS, |args);
 }
 
+our sub call-with-getopt(&func, @args, %options?) is export(:DEFAULT, :functions) {
+	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options);
+	return func(|$capture);
+}
+
 my sub call-main(CallFrame $callframe, $retval) {
 	my $main = $callframe.my<&MAIN>;
 	return $retval unless $main;
 	my %options = $callframe.my<%*SUB-MAIN-OPTS> // {};
-	my $capture = Getopt::Long.new($main, |%options).get-options(@*ARGS);
-	$main(|$capture);
+	return call-with-getopt($main, @*ARGS, %options);
 }
 
 our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
