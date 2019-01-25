@@ -121,6 +121,10 @@ has Option:D %!options;
 
 submethod BUILD(:%!options) { }
 
+method !options {
+	return %!options;
+}
+
 my %store-for = (
 	'%' => HashStore,
 	'@' => ArrayStore,
@@ -301,15 +305,21 @@ multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
 method new-from-sub(Sub $main) {
 	return $main.getopt if $main ~~ Parsed;
 
+	my sub get-options($candidate) {
+		if $candidate ~~ Parsed {
+			return $candidate.getopt!options.values;
+		}
+		else {
+			return $candidate.signature.params.grep(*.named).map(&parse-parameter).flat;
+		}
+	}
 	my %options;
 	for $main.candidates -> $candidate {
-		for $candidate.signature.params.grep(*.named) -> $param {
-			for parse-parameter($param) -> $option {
-				if %options{$option.name}:exists and %options{$option.name} !eqv $option {
-					die "Can't merge arguments for {$option.name}";
-				}
-				%options{$option.name} = $option;
+		for get-options($candidate) -> $option {
+			if %options{$option.name}:exists and %options{$option.name} !eqv $option {
+				die "Can't merge arguments for {$option.name}";
 			}
+			%options{$option.name} = $option;
 		}
 	}
 	return self.new(:%options);

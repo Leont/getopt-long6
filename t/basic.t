@@ -7,7 +7,7 @@ use Getopt::Long;
 my $capture = get-options-from(<--foo bar --fooo bar2 -f bar3 -ac --bar baz>, 'foo|f|fooo=s@', 'bar', 'a', 'c');
 is-deeply($capture, \('baz', :bar, :a, :c, :foo(Array[Str].new(<bar bar2 bar3>))), 'Common argument mix works');
 
-multi main(*@, Str :fooo(:f(:@foo)), Bool :$bar) {
+multi main(*@, Str :fooo(:f(:@foo)), Bool :$bar) is getopt {
 }
 multi main(*@, Bool :$a!, Bool :$c!, Bool :$d) {
 }
