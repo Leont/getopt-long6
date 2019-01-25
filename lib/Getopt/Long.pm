@@ -258,8 +258,8 @@ my sub parse-parameter(Parameter $param) {
 		my $key = @names[0];
 		if $param.sigil eq '$' {
 			my $type = $param.type;
-			my $store = ScalarStore.new(:$key);
 			if $param.type === Bool {
+				my $store = ScalarStore.new(:$key);
 				return flat @names.map: -> $name {
 					my @options;
 					@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
@@ -271,6 +271,8 @@ my sub parse-parameter(Parameter $param) {
 				}
 			}
 			else {
+				my $converter = %converter-for-type{$param.type} // &null-converter;
+				my $store = ScalarStore.new(:$key, :$converter);
 				return @names.map: -> $name {
 					Option.new(:$name, :$store, :arity(1..1));
 				}
