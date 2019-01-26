@@ -1,6 +1,6 @@
 use v6;
 
-unit class Getopt::Long;
+unit class Getopt::Long:ver<0.0.2>;
 
 my sub null-converter(Str:D $value --> Str) {
 	return $value;

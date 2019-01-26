@@ -1,0 +1,5 @@
+Revision history for Getopt-Long
+
+{{$NEXT}}
+    - Added pair syntax
+    - Implemented new perl6.d getopt hooks
