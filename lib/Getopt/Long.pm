@@ -394,7 +394,7 @@ our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DE
 		when $element ~~ Pair {
 			@options.push: $element.key;
 			my ($key) = $element.key ~~ / ^ (\w+) /[0];
-			%hash{$key} := $element.value[0];
+			%hash{$key} := $element.value;
 		}
 	}
 	my $getopt = Getopt::Long.new-from-patterns(@options);
@@ -445,9 +445,9 @@ Getopt::Long
 =head1 SYNOPSIS
 
   use Getopt::Long;
-  get-options("length=i" => \my $length, # numeric
-              "file=s"   => \my $file    # string
-              "verbose"  => \my $verbose); # flag
+  get-options("length=i" => my $length, # numeric
+              "file=s"   => my $file    # string
+              "verbose"  => my $verbose); # flag
 
 or
 
@@ -528,7 +528,7 @@ Handling simple options is straightforward:
 
 or:
 
-    get-options('verbose' => \my $verbose, 'all' => \my $all);
+    get-options('verbose' => my $verbose, 'all' => my $all);
 
 The call to C<get-options()> parses the command line arguments that are
 present in C<@*ARGS> and sets the option variable to the value C<True>
@@ -556,7 +556,7 @@ option name or a default value for C<MAIN> argument:
 
 or:
 
-    get-options('verbose!' => \my $verbose);
+    get-options('verbose!' => my $verbose);
 
 or:
 
@@ -574,7 +574,7 @@ option name:
 
 or:
 
-   get-options('verbose+' => \my $verbose);
+   get-options('verbose+' => my $verbose);
 
 or
 
@@ -618,7 +618,7 @@ valid command line option itself.
 
 or
 
-    get-options('tag=s' => \my $tag);
+    get-options('tag=s' => my $tag);
 
 or
     my %options = get-options('tag=s');
@@ -646,7 +646,7 @@ You can specify that the option can have multiple values by adding a
 
 or
 
-    get-options('library=s@' => \my @libraries);
+    get-options('library=s@' => my @libraries);
 
 or
 
@@ -676,8 +676,8 @@ or
       Int :@rgbcolor is getopt('i{3}'))
 
 
-    get-options('coordinates=f{2}' => \my @coordinates,
-      'rgbcolor=i{3}' => \my @rgbcolor);
+    get-options('coordinates=f{2}' => my @coordinates,
+      'rgbcolor=i{3}' => my @rgbcolor);
 
 It is also possible to specify the minimal and maximal number of
 arguments an option takes. C<foo=s{2,4}> indicates an option that
@@ -693,7 +693,7 @@ adding a "%":
 
 or
 
-    get-options("define=s%" => \my %define);
+    get-options("define=s%" => my %define);
 
 or
 
@@ -720,7 +720,7 @@ the above example:
 
 or
 
-    get-options('length|height=f' => \my $length);
+    get-options('length|height=f' => my $length);
 
 or
 
