@@ -926,19 +926,6 @@ C<get-options> and C<get-options-from> take the following named options
 to configure.
 
 =begin item
-gnu_compat
-
-C<gnu_compat> controls whether C<--opt=> is allowed, and what it should
-do. Without C<gnu_compat>, C<--opt=> gives an error. With C<gnu_compat>,
-C<--opt=> will give option C<opt> and empty value.
-This is the way GNU getopt_long() does it.
-
-Note that C<--opt value> is still accepted, even though GNU
-getopt_long() doesn't.
-
-=end item
-
-=begin item
 permute (default:disabled)
 
 Whether command line arguments are allowed to be mixed with options.
