@@ -9,9 +9,9 @@ SYNOPSIS
 ========
 
     use Getopt::Long;
-    get-options("length=i" => \my $length, # numeric
-                "file=s"   => \my $file    # string
-                "verbose"  => \my $verbose); # flag
+    get-options("length=i" => my $length, # numeric
+                "file=s"   => my $file    # string
+                "verbose"  => my $verbose); # flag
 
 or
 
@@ -72,7 +72,7 @@ Handling simple options is straightforward:
 
 or:
 
-    get-options('verbose' => \my $verbose, 'all' => \my $all);
+    get-options('verbose' => my $verbose, 'all' => my $all);
 
 The call to `get-options()` parses the command line arguments that are present in `@*ARGS` and sets the option variable to the value `True` if the option did occur on the command line. Otherwise, the option variable is not touched. Setting the option value to true is often called *enabling* the option.
 
@@ -91,7 +91,7 @@ A negatable option is specified with an exclamation mark `!` after the option na
 
 or:
 
-    get-options('verbose!' => \my $verbose);
+    get-options('verbose!' => my $verbose);
 
 or:
 
@@ -105,7 +105,7 @@ An incremental option is specified with a plus `+` after the option name:
 
 or:
 
-    get-options('verbose+' => \my $verbose);
+    get-options('verbose+' => my $verbose);
 
 or
 
@@ -135,7 +135,7 @@ If the option value is required, Getopt::Long will take the command line argumen
 
 or
 
-    get-options('tag=s' => \my $tag);
+    get-options('tag=s' => my $tag);
 
 or my %options = get-options('tag=s');
 
@@ -154,7 +154,7 @@ You can specify that the option can have multiple values by adding a "@" to the 
 
 or
 
-    get-options('library=s@' => \my @libraries);
+    get-options('library=s@' => my @libraries);
 
 or
 
@@ -178,8 +178,8 @@ or
       Int :@rgbcolor is getopt('i{3}'))
 
 
-    get-options('coordinates=f{2}' => \my @coordinates,
-      'rgbcolor=i{3}' => \my @rgbcolor);
+    get-options('coordinates=f{2}' => my @coordinates,
+      'rgbcolor=i{3}' => my @rgbcolor);
 
 It is also possible to specify the minimal and maximal number of arguments an option takes. `foo=s{2,4}` indicates an option that takes at least two and at most 4 arguments. `foo=s{1,}` indicates one or more values; `foo:s{,}` indicates zero or more option values.
 
@@ -192,7 +192,7 @@ If you specify that the option can have multiple named values by adding a "%":
 
 or
 
-    get-options("define=s%" => \my %define);
+    get-options("define=s%" => my %define);
 
 or
 
@@ -213,7 +213,7 @@ Often it is user friendly to supply alternate mnemonic names for options. For ex
 
 or
 
-    get-options('length|height=f' => \my $length);
+    get-options('length|height=f' => my $length);
 
 or
 
@@ -349,12 +349,6 @@ Configuring Getopt::Long
 ========================
 
 `get-options` and `get-options-from` take the following named options to configure.
-
-  * gnu_compat
-
-    `gnu_compat` controls whether `--opt=` is allowed, and what it should do. Without `gnu_compat`, `--opt=` gives an error. With `gnu_compat`, `--opt=` will give option `opt` and empty value. This is the way GNU getopt_long() does it.
-
-    Note that `--opt value` is still accepted, even though GNU getopt_long() doesn't.
 
   * permute (default:disabled)
 

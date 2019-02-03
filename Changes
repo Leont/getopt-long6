@@ -1,6 +1,8 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+
+0.1.0  2019-02-03T01:43:46+01:00
     - Eliminate Capture in pair syntax
     - Add compound inference to pair syntax
 
