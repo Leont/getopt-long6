@@ -392,9 +392,18 @@ our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DE
 			@options.push: $element;
 		}
 		when $element ~~ Pair {
-			@options.push: $element.key;
-			my ($key) = $element.key ~~ / ^ (\w+) /[0];
-			%hash{$key} := $element.value;
+			my $key = $element.key;
+			my ($name) = $element.key ~~ / ^ (\w+) /[0];
+			%hash{$name} := $element.value;
+			given $element.value {
+				when Positional {
+					$key ~= '@' unless $key.ends-with('@'|'}');
+				}
+				when Associative {
+					$key ~= '%' unless $key.ends-with('%');
+				}
+			}
+			@options.push: $key;
 		}
 	}
 	my $getopt = Getopt::Long.new-from-patterns(@options);
