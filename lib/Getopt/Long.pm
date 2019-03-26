@@ -405,6 +405,9 @@ our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DE
 			}
 			@options.push: $key;
 		}
+		default {
+			die "Unknown element type: " ~ $element.perl;
+		}
 	}
 	my $getopt = Getopt::Long.new-from-patterns(@options);
 	return $getopt.get-options(@args, |%config, :%hash, :write-args($overwrite ?? @args !! Any));
