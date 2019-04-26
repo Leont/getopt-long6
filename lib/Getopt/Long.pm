@@ -53,8 +53,8 @@ my sub num-converter(Str:D $value --> Num) {
 	return $value.Num;
 }
 
-my sub rat-num-converter(Str:D $value --> Real) {
-	return val($value) ~~ Rat|Int ?? $value.Rat !! $value.Num;
+my sub real-converter(Str:D $value --> Real) {
+	return $value.Real;
 }
 
 my sub maybe-converter(Str:D $value --> Any) {
@@ -172,7 +172,7 @@ my grammar Argument {
 	my %converter-for-format = (
 		i => &int-converter,
 		s => &null-converter,
-		f => &rat-num-converter,
+		f => &real-converter,
 		r => &rat-converter,
 		o => &extended-int-converter,
 	);
@@ -228,11 +228,12 @@ method new-from-patterns(@patterns, *%args) {
 }
 
 my %converter-for-type{Any:U} = (
-	(Int) => &int-converter,
-	(Rat) => &rat-converter,
-	(Num) => &num-converter,
-	(Str) => &null-converter,
-	(Any) => &maybe-converter,
+	(Int)  => &int-converter,
+	(Rat)  => &rat-converter,
+	(Num)  => &num-converter,
+	(Real) => &real-converter,
+	(Str)  => &null-converter,
+	(Any)  => &maybe-converter,
 );
 
 my role Formatted {
