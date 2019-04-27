@@ -253,7 +253,7 @@ my sub parse-parameter(Parameter $param) {
 	if $param ~~ Formatted {
 		my $pattern = $param.format;
 		if Argument.parse($pattern, :rule('argument')) -> $match {
-			return @($match.ast).map(&make-option.assuming(@names)).flat;
+			return make-option(@names, |@($match.ast))
 		}
 		else {
 			die "Couldn't parse '$pattern'";
