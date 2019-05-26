@@ -85,7 +85,7 @@ my class CountStore does Store {
 my class ArrayStore does Store {
 	has Any:U $.type = $!converter.returns;
 	method store-direct(Any:D $value, Hash:D $hash) {
-		$hash{$!key} //= Array[$!type].new;
+		$hash{$!key} //= $!type === Any ?? Array !! Array[$!type].new;
 		$hash{$!key}.push($value);
 	}
 }
@@ -94,12 +94,12 @@ my class HashStore does Store {
 	has Any:U $.type = $!converter.returns;
 	method store-convert(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
-		$hash{$!key} //= Hash[$!type].new;
+		$hash{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
 		$hash{$!key}{$key} = $!converter($value);
 	}
 	method store-direct(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
-		$hash{$!key} //= Hash[$!type].new;
+		$hash{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
 		$hash{$!key}{$key} = $value;
 	}
 }
