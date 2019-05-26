@@ -1,6 +1,8 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+
+0.1.1  2019-05-26T15:11:45+02:00
     - Add support for Real parameters
     - Add getopt sub trait
     - Eliminate the extended integer parsing type

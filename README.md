@@ -261,10 +261,6 @@ The argument specification can be
 
           Integer. An optional leading plus or minus sign, followed by a sequence of digits.
 
-        * o
-
-          Extended integer, Perl style. This can be either an optional leading plus or minus sign, followed by a sequence of digits, or an octal string (a zero, optionally followed by '0', '1', .. '7'), or a hexadecimal string (`0x` followed by '0' .. '9', 'a' .. 'f', case insensitive), or a binary string (`0b` followed by a series of '0' and '1').
-
         * r
 
           Rational number. For example `3.14`.
