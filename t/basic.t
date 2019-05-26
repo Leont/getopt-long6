@@ -50,14 +50,14 @@ is-deeply($capture12, \(:foo(1)), 'Colon singles fine');
 my $capture13 = get-options-from(<--foo 2 --foo>, 'foo:+');
 is-deeply($capture13, \(:foo(3)), 'Colon counter adds up');
 
-my $capture14 = get-options-from(<--bar 012>, 'bar=o');
-is-deeply($capture14, \(:bar(10)), 'Parsing octal argument with "o"');
+my $capture14 = get-options-from(<--bar 0o12>, 'bar=i');
+is-deeply($capture14, \(:bar(10)), 'Parsing octal argument with "i"');
 
-my $capture15 = get-options-from(<--bar -012>, 'bar=o');
-is-deeply($capture15, \(:bar(-10)), 'Parsing negative octal argument with "o"');
+my $capture15 = get-options-from(<--bar -0o12>, 'bar=i');
+is-deeply($capture15, \(:bar(-10)), 'Parsing negative octal argument with "i"');
 
-my $capture16 = get-options-from(<--bar 12>, 'bar=o');
-is-deeply($capture16, \(:bar(12)), 'Parsing decimal argument with "o"');
+my $capture16 = get-options-from(<--bar 12>, 'bar=i');
+is-deeply($capture16, \(:bar(12)), 'Parsing decimal argument with "i"');
 
 my $capture17 = get-options-from(['--no-bar'], 'bar!');
 is-deeply($capture17, \(:!bar), 'Negated arguments produce False');

@@ -11,41 +11,6 @@ my sub int-converter(Str:D $value --> Int) {
 	return $value.Int;
 }
 
-my sub extended-int-converter(Str:D $value --> Int) {
-	grammar Extended {
-		token TOP {
-			<sign> <bulk>
-			{ make $<sign>.ast * $<bulk>.ast; }
-		}
-
-		token sign {
-			$<char>=<[+-]>?
-			{ make ($<char> eq '-' ?? -1 !! 1) }
-		}
-		token bulk {
-			[ <hex> | <octal> | <binary> || <fallback> ]
-			{ make $/.values[0].ast }
-		}
-		token hex {
-			:i '0x' $<num>=[<[0..9A..F]>+]
-			{ make :16(~$<num>) }
-		}
-		token octal {
-			'0' $<num>=[<[0..7]>+]
-			{ make :8(~$<num>) }
-		}
-		token binary {
-			:i '0b' $<num>=[<[01]>+]
-			{ make :2(~$<num>) }
-		}
-		token fallback {
-			\d+
-			{ make $/.Str.Int }
-		}
-	}
-	return Extended.parse($value).ast // Int;
-}
-
 my sub rat-converter(Str:D $value --> Rat) {
 	return $value.Rat;
 }
@@ -179,7 +144,6 @@ my grammar Argument {
 		s => &null-converter,
 		f => &real-converter,
 		r => &rat-converter,
-		o => &extended-int-converter,
 	);
 
 	token type {
@@ -829,18 +793,6 @@ i
 
 Integer. An optional leading plus or minus sign, followed by a
 sequence of digits.
-
-=end item2
-
-=begin item2
-o
-
-Extended integer, Perl style. This can be either an optional leading
-plus or minus sign, followed by a sequence of digits, or an octal
-string (a zero, optionally followed by '0', '1', .. '7'), or a
-hexadecimal string (C<0x> followed by '0' .. '9', 'a' .. 'f', case
-insensitive), or a binary string (C<0b> followed by a series of '0'
-and '1').
 
 =end item2
 
