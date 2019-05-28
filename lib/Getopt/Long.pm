@@ -224,36 +224,20 @@ my sub parse-parameter(Parameter $param) {
 		}
 	}
 	else {
-		my $key = @names[0];
 		if $param.sigil eq '$' {
 			my $type = $param.type;
 			if $param.type === Bool {
-				my $store = ScalarStore.new(:$key);
-				return flat @names.map: -> $name {
-					my @options;
-					@options.push: Option.new(:$name, :$store, :arity(0..0), :default);
-					if $param.default {
-						@options.push: Option.new(:name("no$name") , :$store, :arity(0..0), :!default);
-						@options.push: Option.new(:name("no-$name"), :$store, :arity(0..0), :!default);
-					}
-					@options;
-				}
+				return make-option(@names, ScalarStore, {}, 0..0, {}, $param.default)
 			}
 			else {
 				my $converter = %converter-for-type{$param.type} // &null-converter;
-				my $store = ScalarStore.new(:$key, :$converter);
-				return @names.map: -> $name {
-					Option.new(:$name, :$store, :arity(1..1));
-				}
+				return make-option(@names, ScalarStore, { :$converter }, 1..1);
 			}
 		}
 		else {
 			my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
 			my $converter = %converter-for-type{$type} // &null-converter;
-			my $store = %store-for{$param.sigil}.new(:$key, :$type, :$converter);
-			return @names.map: -> $name {
-				Option.new(:$name, :$store, :arity(1..1));
-			}
+			return make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
 		}
 	}
 }
