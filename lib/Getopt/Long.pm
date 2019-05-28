@@ -97,7 +97,7 @@ my %store-for = (
 	''  => ScalarStore,
 );
 
-my sub make-option(@names, $multi-class, $multi-args, $arity, %options-args, $negatable) {
+my sub make-option(@names, $multi-class, $multi-args, $arity, %options-args?, $negatable?) {
 	return flat @names.map: -> $name {
 		my $store = $multi-class.new(|%$multi-args, :key(@names[0]));
 		my @options;
@@ -114,8 +114,7 @@ my grammar Argument {
 	token TOP {
 		<names> <argument>
 		{
-			my ($multi-class, $multi-args, $arity, $options-args, $negatable) = $<argument>.ast;
-			make make-option($<names>.ast, $multi-class, $multi-args, $arity, $options-args, $negatable);
+			make make-option($<names>.ast, |$<argument>.ast);
 		}
 	}
 
@@ -131,12 +130,12 @@ my grammar Argument {
 
 	token boolean {
 		$<negatable>=['!'?]
-		{ make [ ScalarStore, {}, 0..0, {}, $<negatable> ] }
+		{ make [ ScalarStore, {}, 0..0, {}, ?$<negatable> ] }
 	}
 
 	token counter {
 		'+'
-		{ make [ CountStore, {}, 0..0, { }, False ] }
+		{ make [ CountStore, {}, 0..0 ] }
 	}
 
 	my %converter-for-format = (
@@ -153,7 +152,7 @@ my grammar Argument {
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %store-for{~$<repeat>}, { :converter($<type>.ast) }, 1..1, { }, False ] }
+		{ make [ %store-for{~$<repeat>}, { :converter($<type>.ast) }, 1..1 ] }
 	}
 
 	rule range {
@@ -162,22 +161,22 @@ my grammar Argument {
 	}
 	token equals-more {
 		'=' <type> '{' <range>'}'
-		{ make [ ArrayStore, { :converter($<type>.ast) }, $<range>.ast, { }, False ] }
+		{ make [ ArrayStore, { :converter($<type>.ast) }, $<range>.ast ] }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ ScalarStore, { :converter($<type>.ast) }, 0..1, { :default($<type>.ast.returns.new) }, False ] }
+		{ make [ ScalarStore, { :converter($<type>.ast) }, 0..1, { :default($<type>.ast.returns.new) } ] }
 	}
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ ScalarStore, { :converter(&int-converter) }, 0..1, { :default($<num>.Int) }, False ] }
+		{ make [ ScalarStore, { :converter(&int-converter) }, 0..1, { :default($<num>.Int) } ] }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ CountStore, { :converter(&int-converter) }, 0..1, { :default(1) }, False ] }
+		{ make [ CountStore, { :converter(&int-converter) }, 0..1, { :default(1) } ] }
 	}
 }
 
