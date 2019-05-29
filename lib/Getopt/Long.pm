@@ -140,6 +140,7 @@ my grammar Argument {
 
 	my %converter-for-format = (
 		i => &int-converter,
+		o => &int-converter, # compatability with p5
 		s => &null-converter,
 		f => &real-converter,
 		r => &rat-converter,
@@ -791,8 +792,11 @@ argument to start with C<-> or C<-->.
 =begin item2
 i
 
-Integer. An optional leading plus or minus sign, followed by a
-sequence of digits.
+Integer. This can be either an optional leading plus or minus sign,
+followed by a sequence of digits, or an octal string (C<0o>, optionally
+followed by '0', '1', .. '7'), or a hexadecimal string (C<0x> followed
+by '0' .. '9', 'a' .. 'f', case insensitive), or a binary string (C<0b>
+followed by a series of '0' and '1').
 
 =end item2
 
