@@ -30,34 +30,34 @@ my $capture6 = get-options-from([<--quz=2.5>], 'quz=f');
 is-deeply($capture6, \(:quz(2.5e0)), 'Floating point arguments work');
 
 my $capture7 = get-options-from(['--quz'], 'quz:i');
-is-deeply($capture7, \(:quz(0)), ':i without argument works');
+is-deeply($capture7, \(:0quz), ':i without argument works');
 
 my $capture8 = get-options-from(<--quz 2>, 'quz:i');
-is-deeply($capture8, \(:quz(2)), ':i with argument works');
+is-deeply($capture8, \(:2quz), ':i with argument works');
 
 my $capture9 = get-options-from(['--quz'], 'quz:1');
-is-deeply($capture9, \(:quz(1)), ':1 without argument works');
+is-deeply($capture9, \(:1quz), ':1 without argument works');
 
 my $capture10 = get-options-from(<--quz 2>, 'quz:1');
-is-deeply($capture10, \(:quz(2)), ':1 with argument works');
+is-deeply($capture10, \(:2quz), ':1 with argument works');
 
 my $capture11 = get-options-from(<--foo --foo>, 'foo+');
-is-deeply($capture11, \(:foo(2)), 'Counter adds up');
+is-deeply($capture11, \(:2foo), 'Counter adds up');
 
 my $capture12 = get-options-from(['--foo'], 'foo:+');
-is-deeply($capture12, \(:foo(1)), 'Colon singles fine');
+is-deeply($capture12, \(:1foo), 'Colon singles fine');
 
 my $capture13 = get-options-from(<--foo 2 --foo>, 'foo:+');
-is-deeply($capture13, \(:foo(3)), 'Colon counter adds up');
+is-deeply($capture13, \(:3foo), 'Colon counter adds up');
 
 my $capture14 = get-options-from(<--bar 0o12>, 'bar=i');
-is-deeply($capture14, \(:bar(10)), 'Parsing octal argument with "i"');
+is-deeply($capture14, \(:10bar), 'Parsing octal argument with "i"');
 
 my $capture15 = get-options-from(<--bar -0o12>, 'bar=i');
 is-deeply($capture15, \(:bar(-10)), 'Parsing negative octal argument with "i"');
 
 my $capture16 = get-options-from(<--bar 12>, 'bar=i');
-is-deeply($capture16, \(:bar(12)), 'Parsing decimal argument with "i"');
+is-deeply($capture16, \(:12bar), 'Parsing decimal argument with "i"');
 
 my $capture17 = get-options-from(['--no-bar'], 'bar!');
 is-deeply($capture17, \(:!bar), 'Negated arguments produce False');
@@ -80,7 +80,7 @@ is-deeply($capture21, \(:foo(%expected)), 'getopt trait works');
 my $getopt3 = Getopt::Long.new-from-sub(sub (Bool :$foo = True) { });
 
 my $capture22 = $getopt3.get-options(['--no-foo']);
-is-deeply($capture22, \(:foo(False)), 'negative argument detected');
+is-deeply($capture22, \(:!foo), 'negative argument detected');
 
 get-options-from([<--foo>], 'foo' => my $foo);
 is-deeply($foo, True, 'Pair arguments');
