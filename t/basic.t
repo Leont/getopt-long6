@@ -27,7 +27,7 @@ my $capture5 = $getopt.get-options(<--bar -- -a>);
 is-deeply($capture5, \('-a', :bar), '"--" terminates argument handling');
 
 my $capture6 = get-options-from([<--quz=2.5>], 'quz=f');
-is-deeply($capture6, \(:quz(2.5)), 'Numeric arguments work');
+is-deeply($capture6, \(:quz(2.5e0)), 'Floating point arguments work');
 
 my $capture7 = get-options-from(['--quz'], 'quz:i');
 is-deeply($capture7, \(:quz(0)), ':i without argument works');

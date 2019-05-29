@@ -146,7 +146,7 @@ my grammar Argument {
 		i => &int-converter,
 		o => &int-converter, # compatability with p5
 		s => &null-converter,
-		f => &real-converter,
+		f => &num-converter,
 		r => &rat-converter,
 		c => &complex-converter,
 	);
@@ -816,7 +816,7 @@ Rational number. For example C<3.14>.
 =begin item2
 f
 
-Real number. For example C<3.14>, C<-6.23E24> and so on.
+Floating-pointer number. For example C<3.14>, C<-6.23E24> and so on.
 
 =end item2
 
