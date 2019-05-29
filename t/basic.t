@@ -88,4 +88,7 @@ is-deeply($foo, True, 'Pair arguments');
 get-options-from(<--foo 1 --foo 2>, 'foo=i@' => my @foo);
 is-deeply(@foo, [1, 2], 'Pair arguments');
 
+my $capture23 = get-options-from(['--foo', '1+2i'], <foo=c>);
+is-deeply($capture23, \(:foo(1+2i)), 'Repeat specifier works');
+
 done-testing;

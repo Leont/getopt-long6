@@ -23,6 +23,10 @@ my sub real-converter(Str:D $value --> Real) {
 	return $value.Real;
 }
 
+my sub complex-converter(Str:D $value --> Complex) {
+	return $value.Complex;
+}
+
 my sub maybe-converter(Str:D $value --> Any) {
 	return val($value);
 }
@@ -144,10 +148,11 @@ my grammar Argument {
 		s => &null-converter,
 		f => &real-converter,
 		r => &rat-converter,
+		c => &complex-converter,
 	);
 
 	token type {
-		<[sifor]>
+		<[siforc]>
 		{ make %converter-for-format{$/} }
 	}
 
@@ -197,12 +202,13 @@ method new-from-patterns(@patterns, *%args) {
 }
 
 my %converter-for-type{Any:U} = (
-	(Int)  => &int-converter,
-	(Rat)  => &rat-converter,
-	(Num)  => &num-converter,
-	(Real) => &real-converter,
-	(Str)  => &null-converter,
-	(Any)  => &maybe-converter,
+	(Int)     => &int-converter,
+	(Rat)     => &rat-converter,
+	(Num)     => &num-converter,
+	(Real)    => &real-converter,
+	(Complex) => &complex-converter,
+	(Str)     => &null-converter,
+	(Any)     => &maybe-converter,
 );
 
 my role Formatted {
@@ -811,6 +817,13 @@ Rational number. For example C<3.14>.
 f
 
 Real number. For example C<3.14>, C<-6.23E24> and so on.
+
+=end item2
+
+=begin item2
+c
+
+Complex number. For example C<1+2i>.
 
 =end item2
 

@@ -1,6 +1,7 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+    - Add support for Complex parameters
 
 0.1.1  2019-05-26T15:11:45+02:00
     - Add support for Real parameters
