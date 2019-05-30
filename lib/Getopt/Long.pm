@@ -68,9 +68,7 @@ my class HashStore does Store {
 		$hash{$!key}{$key} = $!converter($value);
 	}
 	method store-direct(Any:D $pair, Hash:D $hash) {
-		my ($key, $value) = $pair.split('=', 2);
-		$hash{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
-		$hash{$!key}{$key} = $value;
+		!!!
 	}
 }
 
