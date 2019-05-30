@@ -297,7 +297,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 				when X::Str::Numeric {
 					$_ does role {
 						method message() {
-							"Cannot convert --{$option.name} argument to number: $.reason $.source-indicator";
+							qq{Cannot convert --$option.name() argument "$value" to number: $.reason};
 						}
 					}
 					.rethrow;
