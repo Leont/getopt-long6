@@ -287,6 +287,10 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 
 		my $consumed = 0;
 
+		sub get-option($key) {
+			return %!options{$key} // die "Unknown option $key";
+		}
+
 		sub take-value($option, $value) {
 			$option.store($value, %hash);
 			$consumed++;
@@ -331,7 +335,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
-				my $option = %!options{$value} or die "No such option $value";
+				my $option = get-option($value);
 				if $option.arity.max > 0 && $index + 1 < @values.elems {
 					take-value($option, $<values>.substr($index + 1));
 				}
@@ -345,23 +349,13 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			last;
 		}
 		elsif $head ~~ / ^ '-' ** 1..2 $<name>=[\w <[\w-]>*] $ / -> $/ {
-			if %!options{$<name>} -> $option {
-				take-args($option);
-			}
-			else {
-				die "Unknown option $<name>";
-			}
+			take-args(get-option($<name>));
 		}
 		elsif $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
-			if %!options{$<name>} -> $option {
-				die  "$<name> doesn't take arguments" if $option.arity.max == 0;
-				take-value($option, ~$<value>);
-
-				take-args($option);
-			}
-			else {
-				die "Unknown option $<name>";
-			}
+			my $option = get-option($<name>);
+			die  "$<name> doesn't take arguments" if $option.arity.max == 0;
+			take-value($option, ~$<value>);
+			take-args($option);
 		}
 		else {
 			if $permute {
