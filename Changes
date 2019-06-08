@@ -1,6 +1,8 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+
+0.1.2  2019-06-08T15:32:25+02:00
     - Add support for Complex parameters
     - Make f format Num instead of Real
 

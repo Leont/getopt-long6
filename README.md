@@ -259,7 +259,7 @@ The argument specification can be
 
         * i
 
-          Integer. An optional leading plus or minus sign, followed by a sequence of digits.
+          Integer. This can be either an optional leading plus or minus sign, followed by a sequence of digits, or an octal string (`0o`, optionally followed by '0', '1', .. '7'), or a hexadecimal string (`0x` followed by '0' .. '9', 'a' .. 'f', case insensitive), or a binary string (`0b` followed by a series of '0' and '1').
 
         * r
 
@@ -267,7 +267,11 @@ The argument specification can be
 
         * f
 
-          Real number. For example `3.14`, `-6.23E24` and so on.
+          Floating-pointer number. For example `3.14`, `-6.23E24` and so on.
+
+        * c
+
+          Complex number. For example `1+2i`.
 
     The *desttype* can be `@` or `%` to specify that the option is list or a hash valued.
 

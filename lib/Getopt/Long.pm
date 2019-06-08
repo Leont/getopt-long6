@@ -1,7 +1,7 @@
 use v6;
 use fatal;
 
-unit class Getopt::Long:ver<0.1.1>;
+unit class Getopt::Long:ver<0.1.2>;
 
 my sub null-converter(Str:D $value --> Str) {
 	return $value;
