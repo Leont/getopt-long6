@@ -210,23 +210,22 @@ my %converter-for-type{Any:U} = (
 );
 
 my role Formatted {
-	has Str:D $.format is required;
+	has Positional $.format is required;
 }
 
-multi sub trait_mod:<is>(Parameter $param, Str:D :getopt($format)!) is export(:DEFAULT, :traits) {
-	$param does Formatted(:$format);
+multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, :traits) {
+	with Argument.parse($getopt, :rule('argument')) -> $match {
+		return $param does Formatted(:format($match.ast));
+	}
+	else {
+		die "Couldn't parse '$getopt'";
+	}
 }
 
 my sub parse-parameter(Parameter $param) {
 	my @names = $param.named_names;
 	if $param ~~ Formatted {
-		my $pattern = $param.format;
-		if Argument.parse($pattern, :rule('argument')) -> $match {
-			return make-option(@names, |@($match.ast))
-		}
-		else {
-			die "Couldn't parse '$pattern'";
-		}
+		return make-option(@names, |$param.format.list);
 	}
 	else {
 		if $param.sigil eq '$' {
