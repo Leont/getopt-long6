@@ -255,8 +255,6 @@ multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
 }
 
 method new-from-sub(Sub $main) {
-	return $main.getopt if $main ~~ Parsed;
-
 	my multi get-options($candidate) {
 		return $candidate.signature.params.grep(*.named).map(&parse-parameter).flat;
 	}
