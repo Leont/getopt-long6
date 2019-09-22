@@ -90,7 +90,7 @@ has Option:D %!options;
 submethod BUILD(:%!options) { }
 
 method !options {
-	return %!options;
+	return %!options.values;
 }
 
 my %store-for = (
@@ -259,7 +259,7 @@ method new-from-sub(Sub $main) {
 		return $candidate.signature.params.grep(*.named).map(&parse-parameter).flat;
 	}
 	my multi get-options(Parsed $candidate) {
-		return $candidate.getopt!options.values;
+		return $candidate.getopt!options;
 	}
 	my %options;
 	for $main.candidates -> $candidate {
