@@ -184,6 +184,16 @@ my grammar Argument {
 	}
 }
 
+role Exceptional {
+}
+
+class Exception is ::Exception does Exceptional {
+	has $.message;
+	method new(Str $message) {
+		return self.bless(:$message);
+	}
+}
+
 method new-from-patterns(@patterns, *%args) {
 	my %options;
 	for @patterns -> $pattern {
@@ -193,7 +203,7 @@ method new-from-patterns(@patterns, *%args) {
 			}
 		}
 		else {
-			die "Couldn't parse '$pattern'";
+			die Exception.new("Couldn't parse '$pattern'");
 		}
 	}
 	return self.new(|%args, :%options);
@@ -218,7 +228,7 @@ multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, 
 		return $param does Formatted(:format($match.ast));
 	}
 	else {
-		die "Couldn't parse '$getopt'";
+		die Exception.new("Couldn't parse '$getopt'");
 	}
 }
 
@@ -265,7 +275,7 @@ method new-from-sub(Sub $main) {
 	for $main.candidates -> $candidate {
 		for get-options($candidate) -> $option {
 			if %options{$option.name}:exists and %options{$option.name} !eqv $option {
-				die "Can't merge arguments for {$option.name}";
+				die Exception.new("Can't merge arguments for {$option.name}");
 			}
 			%options{$option.name} = $option;
 		}
@@ -281,7 +291,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 		my $consumed = 0;
 
 		sub get-option($key) {
-			return %!options{$key} // die "Unknown option $key";
+			return %!options{$key} // die Exception.new("Unknown option $key");
 		}
 
 		sub take-value($option, $value) {
@@ -290,7 +300,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 
 			CATCH {
 				when X::Str::Numeric {
-					$_ does role {
+					$_ does role :: does Exceptional {
 						method message() {
 							qq{Cannot convert --$option.name() argument "$value" to number: $.reason};
 						}
@@ -298,7 +308,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 					.rethrow;
 				}
 				when X::Numeric::CannotConvert {
-					$_ does role {
+					$_ does role :: does Exceptional {
 						method message() {
 							"Cannot convert --{$option.name} argument $.source to {$.target // $.target.perl}: $.reason"
 						}
@@ -320,7 +330,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 				$option.store-default(%hash);
 			}
 			elsif $consumed < $option.arity.min {
-				die "No argument given for option {$option.name}";
+				die Exception.new("No argument given for option {$option.name}");
 			}
 		}
 
@@ -346,7 +356,7 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 		}
 		elsif $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
 			my $option = get-option($<name>);
-			die  "$<name> doesn't take arguments" if $option.arity.max == 0;
+			die Exception.new("$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
 		}
@@ -386,7 +396,7 @@ our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DE
 			@options.push: $key;
 		}
 		default {
-			die "Unknown element type: " ~ $element.perl;
+			die Exception.new("Unknown element type: " ~ $element.perl);
 		}
 	}
 	my $getopt = Getopt::Long.new-from-patterns(@options);
