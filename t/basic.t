@@ -91,4 +91,7 @@ is-deeply(@foo, [1, 2], 'Pair arguments');
 my $capture23 = get-options-from(['--foo', '1+2i'], <foo=c>);
 is-deeply($capture23, \(:foo(1+2i)), 'Repeat specifier works');
 
+my $capture24 = get-options-from(['-f=1'], <f=i>, :compat-singles);
+is-deeply($capture24, \(:f(1)), ':compat-singles appears to work');
+
 done-testing;

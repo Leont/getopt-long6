@@ -283,7 +283,7 @@ method new-from-sub(Sub $main) {
 	return self.new(:%options);
 }
 
-method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$bundling = True, :$write-args) {
+method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$bundling = True, :$compat-singles = False, :$write-args) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -359,6 +359,11 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			die Exception.new("$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
+		}
+		elsif $compat-singles && $head ~~ / ^ '-' $<name>=<alnum> '=' $<value>=[.*] / -> $/ {
+			my $option = get-option($<name>);
+			die Exception.new("$<name> doesn't take one argument") if $option.arity.max != 1;
+			take-value($option, ~$<value>);
 		}
 		else {
 			if $permute {
@@ -957,6 +962,15 @@ arguments and option settings are:
     -l, --l          l
     -all             a, l
     --all            all
+
+=end item
+
+=begin item
+compat-singles (default: disabled)
+
+Enabling this will allow single letter arguments with an C<=> between
+the letter and its argument. E.g. C<-j=2> instead of C<-j2>. This is for
+compatibility with raku's built-in argument parsing.
 
 =end item
 
