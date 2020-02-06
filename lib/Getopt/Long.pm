@@ -509,7 +509,7 @@ or
 
 =head1 Getting Started with Getopt::Long
 
-To use Getopt::Long from a Perl6 program, you must include the
+To use Getopt::Long from a Raku program, you must include the
 following line in your program:
 
     use Getopt::Long;
