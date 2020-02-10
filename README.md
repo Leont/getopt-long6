@@ -53,7 +53,7 @@ or
 Getting Started with Getopt::Long
 =================================
 
-To use Getopt::Long from a Perl6 program, you must include the following line in your program:
+To use Getopt::Long from a Raku program, you must include the following line in your program:
 
     use Getopt::Long;
 
@@ -374,6 +374,10 @@ Configuring Getopt::Long
         -l, --l          l
         -all             a, l
         --all            all
+
+  * compat-singles (default: disabled)
+
+    Enabling this will allow single letter arguments with an `=` between the letter and its argument. E.g. `-j=2` instead of `-j2`. This is for compatibility with raku's built-in argument parsing.
 
 Return values and Errors
 ========================
