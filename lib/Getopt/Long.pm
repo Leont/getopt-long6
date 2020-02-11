@@ -427,7 +427,7 @@ my sub call-main(CallFrame $callframe, $retval) {
 our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
 	my %options = %*SUB-MAIN-OPTS // {};
 	return Getopt::Long.new-from-sub($func).get-options(@args, |%options, :write-args(@args));
-	CATCH { note .message; &*EXIT(2) };
+	CATCH { when Exceptional { note .message; &*EXIT(2) } };
 }
 
 our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
