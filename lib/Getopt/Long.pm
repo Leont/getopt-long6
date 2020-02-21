@@ -334,7 +334,12 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			}
 		}
 
-		if $bundling && $head ~~ / ^ '-' $<values>=[\w <[\w-]>*] $ / -> $/ {
+		if $compat-singles && $head ~~ / ^ '-' $<name>=<alnum> '=' $<value>=[.*] / -> $/ {
+			my $option = get-option($<name>);
+			die Exception.new("$<name> doesn't take one argument") if $option.arity.max != 1;
+			take-value($option, ~$<value>);
+		}
+		elsif $bundling && $head ~~ / ^ '-' $<values>=[\w .* ] $ / -> $/ {
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
@@ -359,11 +364,6 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			die Exception.new("$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
-		}
-		elsif $compat-singles && $head ~~ / ^ '-' $<name>=<alnum> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option($<name>);
-			die Exception.new("$<name> doesn't take one argument") if $option.arity.max != 1;
-			take-value($option, ~$<value>);
 		}
 		else {
 			if $permute {
