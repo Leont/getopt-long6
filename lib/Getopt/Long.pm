@@ -283,7 +283,7 @@ method new-from-sub(Sub $main) {
 	return self.new(:%options);
 }
 
-method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$write-args) {
+method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$write-args) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -364,6 +364,16 @@ method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$
 			die Exception.new("$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
+		}
+		elsif $compat-negation && $head ~~ / ^ '-' ** 1..2 '/' $<name>=[\w <[\w-]>*] ['=' $<value>=[.*]]?  $ / {
+			if $<value> {
+				my $option = get-option($<name>);
+				die Exception.new("$<name> doesn't take an argument") if $option.arity.max != 1;
+				take-value($option, ~$<value> but False);
+			}
+			else {
+				take-args(get-option('no-' ~ $<name>));
+			}
 		}
 		else {
 			if $permute {
@@ -951,7 +961,7 @@ compat-builtin (default: disabled)
 
 Enable all compatibility options that make argument parsing more like
 the builtin argument parsing. Currently that means disabling C<bundling>
-and enabling C<compat-singles>.
+and enabling C<compat-singles> and C<compat-negation>.
 
 =end item
 
@@ -980,6 +990,16 @@ compat-singles (default: C<$compat-builtin>)
 Enabling this will allow single letter arguments with an C<=> between
 the letter and its argument. E.g. C<-j=2> instead of C<-j2>. This is for
 compatibility with raku's built-in argument parsing.
+
+=end item
+
+=begin item
+compat-negation (default: C<$compat-builtin>)
+
+Enabling this will allow one to one to use C<--/foo> as an alias for
+C<--no-foo>, for compatibility with raku's built-in argument parsing.
+Note that this still requires the presence of a C<--no-foo> handler,
+typically by using the C<!> modifier.
 
 =end item
 

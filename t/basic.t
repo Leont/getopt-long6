@@ -94,4 +94,11 @@ is-deeply($capture23, \(:foo(1+2i)), 'Repeat specifier works');
 my $capture24 = get-options-from(['-f=1'], <f=i>, :compat-singles);
 is-deeply($capture24, \(:f(1)), ':compat-singles appears to work');
 
+my $capture25 = get-options-from(['-/f'], <f!>, :compat-negation);
+is-deeply($capture25, \(:!f), ':compat-negation works');
+
+my $capture26 = get-options-from(['--/f=foo'], <f=s>, :compat-negation);
+ok(!$capture26<f>, 'compat negation delivers a false value');
+is($capture26<f>, 'foo', 'compat negation delivers the correct string');
+
 done-testing;
