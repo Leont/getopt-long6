@@ -194,7 +194,7 @@ class Exception is ::Exception does Exceptional {
 	}
 }
 
-method new-from-patterns(@patterns) {
+method new-from-patterns(Getopt::Long:U: @patterns) {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
@@ -264,7 +264,7 @@ multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
 	$sub does Parsed(Getopt::Long.new-from-sub($sub));
 }
 
-method new-from-sub(Sub $main) {
+method new-from-sub(Getopt::Long:U: Sub $main) {
 	my multi get-options($candidate) {
 		return $candidate.signature.params.grep(*.named).map(&parse-parameter).flat;
 	}
@@ -283,7 +283,7 @@ method new-from-sub(Sub $main) {
 	return self.new(:%options);
 }
 
-method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$write-args) {
+method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$write-args) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
