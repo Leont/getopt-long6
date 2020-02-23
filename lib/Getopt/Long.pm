@@ -3,6 +3,16 @@ use fatal;
 
 unit class Getopt::Long:ver<0.1.5>;
 
+role Exceptional is CORE::Exception {
+}
+
+class Exception does Exceptional {
+	has $.message;
+	method new(Str $message) {
+		return self.bless(:$message);
+	}
+}
+
 my sub null-converter(Str:D $value --> Str) {
 	return $value;
 }
@@ -181,16 +191,6 @@ my grammar Argument {
 	token colon-count {
 		':+'
 		{ make [ CountStore, { :converter(&int-converter) }, 0..1, { :default(1) } ] }
-	}
-}
-
-role Exceptional {
-}
-
-class Exception is ::Exception does Exceptional {
-	has $.message;
-	method new(Str $message) {
-		return self.bless(:$message);
 	}
 }
 
