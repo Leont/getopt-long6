@@ -362,7 +362,11 @@ Configuring Getopt::Long
 
         --foo --bar arg1 arg2 arg3
 
-  * bundling (default: enabled)
+  * compat-builtin (default: disabled)
+
+    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and enabling `compat-singles` and `compat-negation`.
+
+  * bundling (default: `!$compat-builtin`)
 
     Enabling this option will allow single-character options to be bundled. To distinguish bundles from long option names, long options *must* be introduced with `--` and bundles with `-`.
 
@@ -375,9 +379,13 @@ Configuring Getopt::Long
         -all             a, l
         --all            all
 
-  * compat-singles (default: disabled)
+  * compat-singles (default: `$compat-builtin`)
 
     Enabling this will allow single letter arguments with an `=` between the letter and its argument. E.g. `-j=2` instead of `-j2`. This is for compatibility with raku's built-in argument parsing.
+
+  * compat-negation (default: `$compat-builtin`)
+
+    Enabling this will allow one to one to use `--/foo` as an alias for `--no-foo`, for compatibility with raku's built-in argument parsing. Note that this still requires the presence of a `--no-foo` handler, typically by using the `!` modifier.
 
 Return values and Errors
 ========================
