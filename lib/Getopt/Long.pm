@@ -283,7 +283,7 @@ method new-from-sub(Sub $main) {
 	return self.new(:%options);
 }
 
-method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$bundling = True, :$compat-singles = False, :$write-args) {
+method get-options(@args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$write-args) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -947,7 +947,16 @@ is equivalent to
 =end item
 
 =begin item
-bundling (default: enabled)
+compat-builtin (default: disabled)
+
+Enable all compatibility options that make argument parsing more like
+the builtin argument parsing. Currently that means disabling C<bundling>
+and enabling C<compat-singles>.
+
+=end item
+
+=begin item
+bundling (default: C<!$compat-builtin>)
 
 Enabling this option will allow single-character options to be
 bundled. To distinguish bundles from long option names, long options
@@ -966,7 +975,7 @@ arguments and option settings are:
 =end item
 
 =begin item
-compat-singles (default: disabled)
+compat-singles (default: C<$compat-builtin>)
 
 Enabling this will allow single letter arguments with an C<=> between
 the letter and its argument. E.g. C<-j=2> instead of C<-j2>. This is for
