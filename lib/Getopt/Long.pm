@@ -194,7 +194,7 @@ class Exception is ::Exception does Exceptional {
 	}
 }
 
-method new-from-patterns(@patterns, *%args) {
+method new-from-patterns(@patterns) {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
@@ -206,7 +206,7 @@ method new-from-patterns(@patterns, *%args) {
 			die Exception.new("Couldn't parse '$pattern'");
 		}
 	}
-	return self.new(|%args, :%options);
+	return self.new(:%options);
 }
 
 my %converter-for-type{Any:U} = (
