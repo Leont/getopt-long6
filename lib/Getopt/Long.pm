@@ -13,6 +13,16 @@ class Exception does Exceptional {
 	}
 }
 
+class ValueInvalid does Exceptional {
+	has $.format;
+	method new(Str $format) {
+		return self.bless(:$format);
+	}
+	method rethrow-with(Str $name) {
+		die Exception.new($!format.sprintf($name));
+	}
+}
+
 my sub null-converter(Str:D $value --> Str) {
 	return $value;
 }
@@ -44,6 +54,10 @@ my sub maybe-converter(Str:D $value --> Any) {
 my role Store {
 	has Str:D $.key is required;
 	has Sub:D $.converter = &null-converter;
+	has Junction:D $.constraints = all();
+	method check-constraints($value) {
+		die ValueInvalid.new(qq{Can't accept %s argument "$value" because it fails its constraints}) unless $value ~~ $!constraints;
+	}
 	method store-convert($value, $hash) {
 		self.store-direct($!converter($value), $hash);
 	}
@@ -52,6 +66,7 @@ my role Store {
 
 my class ScalarStore does Store {
 	method store-direct(Any:D $value, Hash:D $hash) {
+		self.check-constraints($value);
 		$hash{$!key} = $value;
 	}
 }
@@ -65,6 +80,7 @@ my class CountStore does Store {
 my class ArrayStore does Store {
 	has Any:U $.type = $!converter.returns;
 	method store-direct(Any:D $value, Hash:D $hash) {
+		self.check-constraints($value);
 		$hash{$!key} //= $!type === Any ?? Array !! Array[$!type].new;
 		$hash{$!key}.push($value);
 	}
@@ -74,8 +90,10 @@ my class HashStore does Store {
 	has Any:U $.type = $!converter.returns;
 	method store-convert(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
+		my $converted-value = $!converter($value);
+		self.check-constraints($converted-value);
 		$hash{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
-		$hash{$!key}{$key} = $!converter($value);
+		$hash{$!key}{$key} = $converted-value;
 	}
 	method store-direct(Any:D $pair, Hash:D $hash) {
 		!!!
@@ -240,12 +258,13 @@ my sub parse-parameter(Parameter $param) {
 	else {
 		if $param.sigil eq '$' {
 			my $type = $param.type;
+			my $constraints = $param.constraints;
 			if $param.type === Bool {
-				return make-option(@names, ScalarStore, {}, 0..0, {}, $param.default)
+				return make-option(@names, ScalarStore, { :$constraints }, 0..0, {}, $param.default)
 			}
 			else {
 				my $converter = %converter-for-type{$param.type} // &null-converter;
-				return make-option(@names, ScalarStore, { :$converter }, 1..1);
+				return make-option(@names, ScalarStore, { :$converter, :$constraints }, 1..1);
 			}
 		}
 		else {
@@ -299,6 +318,9 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 			$consumed++;
 
 			CATCH {
+				when ValueInvalid {
+					.rethrow-with("--$option.name()");
+				}
 				when X::Str::Numeric {
 					$_ does role :: does Exceptional {
 						method message() {
