@@ -227,15 +227,32 @@ method new-from-patterns(Getopt::Long:U: @patterns) {
 	return self.new(:%options);
 }
 
-my %converter-for-type{Any:U} = (
-	(Int)     => &int-converter,
-	(Rat)     => &rat-converter,
-	(Num)     => &num-converter,
-	(Real)    => &real-converter,
-	(Complex) => &complex-converter,
-	(Str)     => &null-converter,
-	(Any)     => &maybe-converter,
-);
+sub get-converter(Any:U $type) {
+	state %converter-for-type{Any:U} = (
+		(Int)     => &int-converter,
+		(Rat)     => &rat-converter,
+		(Num)     => &num-converter,
+		(Real)    => &real-converter,
+		(Complex) => &complex-converter,
+		(Str)     => &null-converter,
+		(Any)     => &maybe-converter,
+	);
+
+	if %converter-for-type{$type} -> &converter {
+		return &converter;
+	}
+	elsif $type.HOW ~~ Metamodel::EnumHOW {
+		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
+		sub enum-converter(Str $value) {
+			return $type.WHO{$value} // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
+		}
+		trait_mod:<returns>(&enum-converter, $type);
+		return &enum-converter;
+	}
+	else {
+		die Exception.new("No conversion known for type {$type.^name}");
+	}
+}
 
 my role Formatted {
 	has Positional $.format is required;
@@ -256,9 +273,6 @@ my sub parse-parameter(Parameter $param) {
 		return make-option(@names, |$param.format.list);
 	}
 	else {
-		sub get-converter(Any:U $type) {
-			return %converter-for-type{$type} orelse die Exception.new("No conversion known for type {$type.^name}");
-		}
 		if $param.sigil eq '$' {
 			my $type = $param.type;
 			my $constraints = $param.constraints;
@@ -574,6 +588,8 @@ It supports the following argument types:
 =item Num
 =item Real
 =item Complex
+
+It also supports any enum type.
 
 =head2 Simple options
 

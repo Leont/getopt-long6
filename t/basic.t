@@ -101,4 +101,8 @@ my $capture26 = get-options-from(['--/f=foo'], <f=s>, :compat-negation);
 ok(!$capture26<f>, 'compat negation delivers a false value');
 is($capture26<f>, 'foo', 'compat negation delivers the correct string');
 
+my $getopt4 = Getopt::Long.new-from-sub(sub (Order :$order) { });
+my $capture27 = $getopt4.get-options(<--order Same>);
+is($capture27, \(:order(Same)), 'Correctly parsed enum');
+
 done-testing;
