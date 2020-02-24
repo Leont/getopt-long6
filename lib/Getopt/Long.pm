@@ -256,6 +256,9 @@ my sub parse-parameter(Parameter $param) {
 		return make-option(@names, |$param.format.list);
 	}
 	else {
+		sub get-converter(Any:U $type) {
+			return %converter-for-type{$type} orelse die Exception.new("No conversion known for type {$type.^name}");
+		}
 		if $param.sigil eq '$' {
 			my $type = $param.type;
 			my $constraints = $param.constraints;
@@ -263,13 +266,13 @@ my sub parse-parameter(Parameter $param) {
 				return make-option(@names, ScalarStore, { :$constraints }, 0..0, {}, $param.default)
 			}
 			else {
-				my $converter = %converter-for-type{$param.type} // &null-converter;
+				my $converter = get-converter($param.type);
 				return make-option(@names, ScalarStore, { :$converter, :$constraints }, 1..1);
 			}
 		}
 		else {
 			my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
-			my $converter = %converter-for-type{$type} // &null-converter;
+			my $converter = get-converter($type);
 			return make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
 		}
 	}
@@ -554,6 +557,24 @@ following line in your program:
 This will load the core of the Getopt::Long module and prepare your
 program for using it.
 
+=head2 Getopt::Long as a MAIN wrapper
+
+Getopt::Long can be used as a argument parsing MAIN wrapper, replacing
+the builtin argument parsing. It will by default offer a Unix-typical
+command line interface, but various options allow it to be more similar
+to Raku's ideosyncratic parsing.
+
+It supports the following argument types:
+
+=item Bool
+=item Any
+=item Str
+=item Int
+=item Rat
+=item Num
+=item Real
+=item Complex
+
 =head2 Simple options
 
 The most simple options are the ones that take no values. Their mere
@@ -824,7 +845,7 @@ are:
 =begin item2
 s
 
-String. An arbitrary sequence of characters. It is valid for the
+String(C<Str>). An arbitrary sequence of characters. It is valid for the
 argument to start with C<-> or C<-->.
 
 =end item2
@@ -832,7 +853,7 @@ argument to start with C<-> or C<-->.
 =begin item2
 i
 
-Integer. This can be either an optional leading plus or minus sign,
+Integer (C<Int>). This can be either an optional leading plus or minus sign,
 followed by a sequence of digits, or an octal string (C<0o>, optionally
 followed by '0', '1', .. '7'), or a hexadecimal string (C<0x> followed
 by '0' .. '9', 'a' .. 'f', case insensitive), or a binary string (C<0b>
@@ -843,21 +864,21 @@ followed by a series of '0' and '1').
 =begin item2
 r
 
-Rational number. For example C<3.14>.
+Rational number (C<Rat>). For example C<3.14>.
 
 =end item2
 
 =begin item2
 f
 
-Floating-pointer number. For example C<3.14>, C<-6.23E24> and so on.
+Floating-pointer number (C<Num>). For example C<3.14>, C<-6.23E24> and so on.
 
 =end item2
 
 =begin item2
 c
 
-Complex number. For example C<1+2i>.
+Complex number (C<Complex>). For example C<1+2i>.
 
 =end item2
 
