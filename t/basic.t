@@ -66,10 +66,10 @@ my $capture18 = get-options-from(['-abc'], <a b c abc>, :!bundling);
 is-deeply($capture18, \(:abc), 'Bundling can be disabled');
 
 my $capture19 = get-options-from(['--foo', '1', '2', '3'], <foo=i{2}>);
-is-deeply($capture19, \(val('3'), :foo(Array[Int].new(1, 2))), 'Repeat specifier works');
+is-deeply($capture19, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works');
 
 my $capture20 = get-options-from(['--foo', '1', '2', '3'], <foo=i{1,2}>);
-is-deeply($capture20, \(val('3'), :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
+is-deeply($capture20, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
 
 my $getopt2 = Getopt::Long.new-from-sub(sub (:$foo is getopt("=s%")) is getopt {});
 

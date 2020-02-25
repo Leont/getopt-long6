@@ -319,7 +319,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	return self.new(:%options);
 }
 
-method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$write-args) {
+method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
 	my @list;
 	while @args {
 		my $head = @args.shift;
@@ -425,7 +425,8 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 		}
 	}
 	@$write-args = @list if $write-args;
-	return \(|@list.map(&val), |%hash);
+	@list = @list.map(&val) if $compat-positional;
+	return \(|@list, |%hash);
 }
 
 our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DEFAULT, :functions) {
@@ -1020,7 +1021,7 @@ compat-builtin (default: disabled)
 
 Enable all compatibility options that make argument parsing more like
 the builtin argument parsing. Currently that means disabling C<bundling>
-and enabling C<compat-singles> and C<compat-negation>.
+and enabling C<compat-singles>, C<compat-negation> and C<compat-positional>.
 
 =end item
 
@@ -1059,6 +1060,14 @@ Enabling this will allow one to one to use C<--/foo> as an alias for
 C<--no-foo>, for compatibility with raku's built-in argument parsing.
 Note that this still requires the presence of a C<--no-foo> handler,
 typically by using the C<!> modifier.
+
+=end item
+
+=begin item
+compat-positional (default: C<$compat-builtin>)
+
+Enabling this will turn all positional arguments into allomorphs, if
+possible.
 
 =end item
 

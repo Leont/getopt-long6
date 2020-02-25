@@ -3,6 +3,7 @@ Revision history for Getopt-Long
 {{$NEXT}}
     - Add support for enum types
     - Reject values failing argument constraints
+    - Add compat-positional option
 
 0.1.5  2020-02-23T18:27:21+01:00
     - Add compat-builtin option
