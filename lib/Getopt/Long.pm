@@ -47,6 +47,13 @@ my sub complex-converter(Str:D $value --> Complex) {
 	return $value.Complex;
 }
 
+my sub io-converter(Str:D $value --> IO::Path) {
+	return $value.IO;
+	CATCH { default {
+		die ValueInvalid.new(qq{Can not convert %s argument "$value" a path: $_.message()});
+	}}
+}
+
 my sub maybe-converter(Str:D $value --> Any) {
 	return val($value);
 }
@@ -152,7 +159,8 @@ my sub converter-for-format(Str:D $format) {
 		s => &null-converter,
 		f => &num-converter,
 		r => &rat-converter,
-		c => &complex-converter;
+		c => &complex-converter,
+		p => &io-converter;
 	return %converter-for-format{$format} // die Exception.new("No such format $format");
 };
 
@@ -237,13 +245,14 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str :$positionals = "") {
 
 sub get-converter(Any:U $type) {
 	state %converter-for-type{Any:U} = (
-		(Int)     => &int-converter,
-		(Rat)     => &rat-converter,
-		(Num)     => &num-converter,
-		(Real)    => &real-converter,
-		(Complex) => &complex-converter,
-		(Str)     => &null-converter,
-		(Any)     => &maybe-converter,
+		(Int)      => &int-converter,
+		(Rat)      => &rat-converter,
+		(Num)      => &num-converter,
+		(Real)     => &real-converter,
+		(Complex)  => &complex-converter,
+		(Str)      => &null-converter,
+		(IO::Path) => &io-converter,
+		(Any)      => &maybe-converter,
 	);
 
 	if %converter-for-type{$type} -> &converter {
@@ -622,6 +631,7 @@ It supports the following types for named and positional arguments:
 =item Num
 =item Real
 =item Complex
+=item IO::Path
 
 It also supports any enum type.
 
@@ -929,6 +939,13 @@ Floating-pointer number (C<Num>). For example C<3.14>, C<-6.23E24> and so on.
 c
 
 Complex number (C<Complex>). For example C<1+2i>.
+
+=end item2
+
+=begin item2
+p
+
+Path (C<IO::Path>). For example C<foo/bar.txt>.
 
 =end item2
 
