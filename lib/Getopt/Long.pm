@@ -322,6 +322,32 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 
 method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
 	my @list;
+
+	sub wrap-exceptions(Str $description, Str $value, &action) {
+		return action($value);
+		CATCH {
+			when ValueInvalid {
+				.rethrow-with($description);
+			}
+			when X::Str::Numeric {
+				$_ does role :: does Exceptional {
+					method message() {
+						qq{Cannot convert $description "$value" to number: $.reason};
+					}
+				}
+				.rethrow;
+			}
+			when X::Numeric::CannotConvert {
+				$_ does role :: does Exceptional {
+					method message() {
+						"Cannot convert $description $.source to {$.target // $.target.perl}: $.reason"
+					}
+				}
+				.rethrow;
+			}
+		}
+	}
+
 	while @args {
 		my $head = @args.shift;
 
@@ -332,30 +358,10 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 		}
 
 		sub take-value($option, $value) {
-			$option.store($value, %hash);
-			$consumed++;
-
-			CATCH {
-				when ValueInvalid {
-					.rethrow-with("--$option.name()");
-				}
-				when X::Str::Numeric {
-					$_ does role :: does Exceptional {
-						method message() {
-							qq{Cannot convert --$option.name() argument "$value" to number: $.reason};
-						}
-					}
-					.rethrow;
-				}
-				when X::Numeric::CannotConvert {
-					$_ does role :: does Exceptional {
-						method message() {
-							"Cannot convert --{$option.name} argument $.source to {$.target // $.target.perl}: $.reason"
-						}
-					}
-					.rethrow;
-				}
-			}
+			wrap-exceptions("--$option.name()", $value, -> $value {
+				$option.store($value, %hash);
+				$consumed++;
+			});
 		}
 		sub take-args($option) {
 			while @args && $consumed < $option.arity.min {
