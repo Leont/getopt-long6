@@ -1031,7 +1031,8 @@ will set C<vax>.
 =head1 Configuring Getopt::Long
 
 C<get-options> and C<get-options-from> take the following named options
-to configure.
+to configure. When using Getopt::Long as a C<MAIN> wrapper, you can set
+them using the C<%*SUB-MAIN-OPTS> variable:
 
 =begin item
 permute (default:disabled)
