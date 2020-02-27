@@ -105,4 +105,14 @@ my $getopt4 = Getopt::Long.new-from-sub(sub (Order :$order) { });
 my $capture27 = $getopt4.get-options(<--order Same>);
 is($capture27, \(:order(Same)), 'Correctly parsed enum');
 
+my $getopt5 = Getopt::Long.new-from-sub(sub (Int $foo, Rat $bar) { });
+my $capture28 = $getopt5.get-options(["1", "2.5"]);
+is($capture28, \(1, 2.5), 'Typed positionals work');
+
+multi main2(Int $foo) { }
+multi main2(Int $foo, Rat $bar) { }
+my $getopt6 = Getopt::Long.new-from-sub(&main2);
+my $capture29 = $getopt5.get-options(["1", "2.5"]);
+is($capture29, \(1, 2.5), 'Typed positionals work on multis as well');
+
 done-testing;

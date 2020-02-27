@@ -113,9 +113,14 @@ my class Option {
 	}
 }
 
+has Code:D @!positionals;
 has Option:D %!options;
 
-submethod BUILD(:%!options) { }
+submethod BUILD(:@!positionals, :%!options) { }
+
+method !positionals {
+	return @!positionals.map(*.returns);
+}
 
 method !options {
 	return %!options.values;
@@ -214,7 +219,7 @@ my grammar Argument {
 	}
 }
 
-method new-from-patterns(Getopt::Long:U: @patterns) {
+method new-from-patterns(Getopt::Long:U: @patterns, Str :$positionals = "") {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
@@ -226,7 +231,8 @@ method new-from-patterns(Getopt::Long:U: @patterns) {
 			die Exception.new("Couldn't parse '$pattern'");
 		}
 	}
-	return self.new(:%options);
+	my @positionals = $positionals.comb.map(&converter-for-format);
+	return self.new(:%options, :@positionals);
 }
 
 sub get-converter(Any:U $type) {
@@ -277,6 +283,14 @@ multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
 	$sub does Parsed(Getopt::Long.new-from-sub($sub));
 }
 
+my multi get-positionals($candidate) {
+	return $candidate.signature.params.grep(*.positional).map(*.type);
+}
+
+my multi get-positionals(Parsed $candidate) {
+	return $candidate.getopt!positionals;
+}
+
 my multi get-named($candidate) {
 	my @options;
 	for $candidate.signature.params.grep(*.named) -> $param {
@@ -310,7 +324,7 @@ my multi get-named(Parsed $candidate) {
 }
 
 method new-from-sub(Getopt::Long:U: Sub $main) {
-	my %options;
+	my (%options, @positional-types);
 	for $main.candidates -> $candidate {
 		for get-named($candidate) -> $option {
 			if %options{$option.name}:exists and %options{$option.name} !eqv $option {
@@ -318,8 +332,15 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 			}
 			%options{$option.name} = $option;
 		}
+		@positional-types.push: get-positionals($candidate);
 	}
-	return self.new(:%options);
+	my $elem-max = max(@positional-types».elems);
+	my @positionals = (0 ..^ $elem-max).map: -> $index {
+		my @types = @positional-types.grep(* > $index)»[$index];
+		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
+		get-converter(@types[0]);
+	}
+	return self.new(:%options, :@positionals);
 }
 
 method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
@@ -434,7 +455,10 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 		}
 	}
 	@$write-args = @list if $write-args;
-	@list = @list.map(&val) if $compat-positional;
+	state Str @labels = <first second third fourth fifth sixth seventh eighth nineth tenth>;
+	my &fallback-converter = $compat-positional ?? &maybe-converter !! &null-converter;
+	my @converters = |@!positionals, &fallback-converter, *;
+	@list = (@labels Z @list Z @converters).map: { wrap-exceptions(|@^args) }
 	return \(|@list, |%hash);
 }
 
@@ -588,7 +612,7 @@ the builtin argument parsing. It will by default offer a Unix-typical
 command line interface, but various options allow it to be more similar
 to Raku's ideosyncratic parsing.
 
-It supports the following argument types:
+It supports the following types for named and positional arguments:
 
 =item Bool
 =item Any
