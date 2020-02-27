@@ -267,31 +267,6 @@ multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, 
 	}
 }
 
-my sub parse-parameter(Parameter $param) {
-	my @names = $param.named_names;
-	if $param ~~ Formatted {
-		return make-option(@names, |$param.format.list);
-	}
-	else {
-		if $param.sigil eq '$' {
-			my $type = $param.type;
-			my $constraints = $param.constraints;
-			if $param.type === Bool {
-				return make-option(@names, ScalarStore, { :$constraints }, 0..0, {}, $param.default)
-			}
-			else {
-				my $converter = get-converter($param.type);
-				return make-option(@names, ScalarStore, { :$converter, :$constraints }, 1..1);
-			}
-		}
-		else {
-			my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
-			my $converter = get-converter($type);
-			return make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
-		}
-	}
-}
-
 my role Parsed {
 	has Getopt::Long:D $.getopt is required;
 }
@@ -300,16 +275,42 @@ multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
 	$sub does Parsed(Getopt::Long.new-from-sub($sub));
 }
 
+my multi get-named($candidate) {
+	my @options;
+	for $candidate.signature.params.grep(*.named) -> $param {
+		my @names = $param.named_names;
+		if $param ~~ Formatted {
+			@options.append: make-option(@names, |$param.format.list);
+		}
+		else {
+			if $param.sigil eq '$' {
+				my $type = $param.type;
+				my $constraints = $param.constraints;
+				if $param.type === Bool {
+					@options.append: make-option(@names, ScalarStore, { :$constraints }, 0..0, {}, ?$param.default)
+				}
+				else {
+					my $converter = get-converter($param.type);
+					@options.append: make-option(@names, ScalarStore, { :$converter, :$constraints }, 1..1);
+				}
+			}
+			else {
+				my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
+				my $converter = get-converter($type);
+				@options.append: make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
+			}
+		}
+	}
+	return @options;
+}
+my multi get-named(Parsed $candidate) {
+	return $candidate.getopt!options;
+}
+
 method new-from-sub(Getopt::Long:U: Sub $main) {
-	my multi get-options($candidate) {
-		return $candidate.signature.params.grep(*.named).map(&parse-parameter).flat;
-	}
-	my multi get-options(Parsed $candidate) {
-		return $candidate.getopt!options;
-	}
 	my %options;
 	for $main.candidates -> $candidate {
-		for get-options($candidate) -> $option {
+		for get-named($candidate) -> $option {
 			if %options{$option.name}:exists and %options{$option.name} !eqv $option {
 				die Exception.new("Can't merge arguments for {$option.name}");
 			}
