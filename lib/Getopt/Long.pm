@@ -127,9 +127,9 @@ my %store-for = (
 	''  => ScalarStore,
 );
 
-my sub make-option(@names, $multi-class, $multi-args, $arity, %options-args?, $negatable?) {
+my sub make-option(@names, Any:U $multi-class, %multi-args, Range $arity, %options-args?, Bool $negatable?) {
 	return flat @names.map: -> $name {
-		my $store = $multi-class.new(|%$multi-args, :key(@names[0]));
+		my $store = $multi-class.new(|%multi-args, :key(@names[0]));
 		my @options;
 		@options.push: Option.new(:$name, :$store, :$arity, :default, |%options-args);
 		if $negatable {
