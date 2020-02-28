@@ -140,6 +140,17 @@ my sub make-option(@names, Any:U $multi-class, %multi-args, Range $arity, %optio
 	}
 }
 
+my sub converter-for-format(Str:D $format) {
+	state %converter-for-format =
+		i => &int-converter,
+		o => &int-converter, # compatability with p5
+		s => &null-converter,
+		f => &num-converter,
+		r => &rat-converter,
+		c => &complex-converter;
+	return %converter-for-format{$format} // die Exception.new("No such format $format");
+};
+
 my grammar Argument {
 	token TOP {
 		<names> <argument>
@@ -168,18 +179,9 @@ my grammar Argument {
 		{ make [ CountStore, {}, 0..0 ] }
 	}
 
-	my %converter-for-format = (
-		i => &int-converter,
-		o => &int-converter, # compatability with p5
-		s => &null-converter,
-		f => &num-converter,
-		r => &rat-converter,
-		c => &complex-converter,
-	);
-
 	token type {
-		<[siforc]>
-		{ make %converter-for-format{$/} }
+		<alpha>
+		{ make converter-for-format(~$/) }
 	}
 
 	token equals {
