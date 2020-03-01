@@ -59,6 +59,37 @@ To use Getopt::Long from a Raku program, you must include the following line in 
 
 This will load the core of the Getopt::Long module and prepare your program for using it.
 
+Getopt::Long as a MAIN wrapper
+------------------------------
+
+Getopt::Long can be used as a argument parsing MAIN wrapper, replacing the builtin argument parsing. It will by default offer a Unix-typical command line interface, but various options allow it to be more similar to Raku's ideosyncratic parsing.
+
+It supports the following types for named and positional arguments:
+
+  * Bool
+
+  * Any
+
+  * Str
+
+  * Int
+
+  * Rat
+
+  * Num
+
+  * Real
+
+  * Complex
+
+  * IO::Path
+
+  * DateTime
+
+  * Date
+
+It also supports any enum type.
+
 Simple options
 --------------
 
@@ -97,7 +128,7 @@ or:
 
     my $options = get-options('verbose!');
 
-Now, using `--verbose` on the command line will enable `$verbose`, as expected. But it is also allowed to use `--noverbose` or `--no-verbose`, which will disable `$options<verbose> ` by setting its value to `False`.
+Now, using `--verbose` on the command line will enable `$verbose`, as expected. But it is also allowed to use `--noverbose` or `--no-verbose`, which will disable `$verbose ` by setting its value to `False`.
 
 An incremental option is specified with a plus `+` after the option name:
 
@@ -241,8 +272,6 @@ The argument specification can be
 
     The option does not take an argument and may be negated by prefixing it with "no" or "no-". E.g. `"foo!"` will allow `--foo` (a value of 1 will be assigned) as well as `--nofoo` and `--no-foo` (a value of 0 will be assigned). If the option has aliases, this applies to the aliases as well.
 
-    Using negation on a single letter option when bundling is in effect is pointless and will result in a warning.
-
   * +
 
     The option does not take an argument and will be incremented by 1 every time it appears on the command line. E.g. `"more+"`, when used with `--more --more --more`, will increment the value three times, resulting in a value of 3 (provided it was 0 or undefined at firs).
@@ -255,23 +284,35 @@ The argument specification can be
 
         * s
 
-          String. An arbitrary sequence of characters. It is valid for the argument to start with `-` or `--`.
+          String(`Str`). An arbitrary sequence of characters. It is valid for the argument to start with `-` or `--`.
 
         * i
 
-          Integer. This can be either an optional leading plus or minus sign, followed by a sequence of digits, or an octal string (`0o`, optionally followed by '0', '1', .. '7'), or a hexadecimal string (`0x` followed by '0' .. '9', 'a' .. 'f', case insensitive), or a binary string (`0b` followed by a series of '0' and '1').
+          Integer (`Int`). This can be either an optional leading plus or minus sign, followed by a sequence of digits, or an octal string (`0o`, optionally followed by '0', '1', .. '7'), or a hexadecimal string (`0x` followed by '0' .. '9', 'a' .. 'f', case insensitive), or a binary string (`0b` followed by a series of '0' and '1').
 
         * r
 
-          Rational number. For example `3.14`.
+          Rational number (`Rat`). For example `3.14`.
 
         * f
 
-          Floating-pointer number. For example `3.14`, `-6.23E24` and so on.
+          Floating-pointer number (`Num`). For example `3.14`, `-6.23E24` and so on.
 
         * c
 
-          Complex number. For example `1+2i`.
+          Complex number (`Complex`). For example `1+2i`.
+
+        * p
+
+          Path (`IO::Path`). For example `foo/bar.txt`.
+
+        * d
+
+          A date and time (`DateTime`). For example `2019-12-30T01:23:45-0700`.
+
+        * a
+
+          A Date (`Date`). For example `2019-12-30`.
 
     The *desttype* can be `@` or `%` to specify that the option is list or a hash valued.
 
@@ -327,28 +368,10 @@ The following two calls behave identically:
 Bundling
 --------
 
-With bundling it is possible to set several single-character options at once. For example if `a`, `v` and `x` are all valid options,
-
-    -vax
-
-will set all three.
-
-Getopt::Long supports three styles of bundling. To enable bundling, a call to Getopt::Long::Configure is required.
-
-Configured this way, single-character options can be bundled but long options **must** always start with a double dash `--` to avoid ambiguity. For example, when `vax`, `a`, `v` and `x` are all valid options,
-
-    -vax
-
-will set `a`, `v` and `x`, but
-
-    --vax
-
-will set `vax`.
-
 Configuring Getopt::Long
 ========================
 
-`get-options` and `get-options-from` take the following named options to configure.
+`get-options` and `get-options-from` take the following named options to configure. When using Getopt::Long as a `MAIN` wrapper, you can set them using the `%*SUB-MAIN-OPTS` variable:
 
   * permute (default:disabled)
 
@@ -364,7 +387,7 @@ Configuring Getopt::Long
 
   * compat-builtin (default: disabled)
 
-    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and enabling `compat-singles` and `compat-negation`.
+    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and enabling `compat-singles`, `compat-negation` and `compat-positional`.
 
   * bundling (default: `!$compat-builtin`)
 
@@ -387,10 +410,14 @@ Configuring Getopt::Long
 
     Enabling this will allow one to one to use `--/foo` as an alias for `--no-foo`, for compatibility with raku's built-in argument parsing. Note that this still requires the presence of a `--no-foo` handler, typically by using the `!` modifier.
 
+  * compat-positional (default: `$compat-builtin`)
+
+    Enabling this will turn all positional arguments into allomorphs, if possible.
+
 Return values and Errors
 ========================
 
-`get-options` returns a capture to indicate success. Configuration errors and errors in the option definitions are signalled using die() and will terminate the calling program unless caught by exception handling.
+`get-options` returns a capture to indicate success.
 
 Troubleshooting
 ===============
