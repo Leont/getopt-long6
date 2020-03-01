@@ -707,7 +707,7 @@ or:
 Now, using C<--verbose> on the command line will enable
 C<$verbose>, as expected. But it is also allowed to use
 C<--noverbose> or C<--no-verbose>, which will disable
-C<< $options<verbose> >> by setting its value to C<False>.
+C<< $verbose >> by setting its value to C<False>.
 
 An incremental option is specified with a plus C<+> after the
 option name:
@@ -1136,9 +1136,6 @@ possible.
 =head1 Return values and Errors
 
 C<get-options> returns a capture to indicate success.
-Configuration errors and errors in the option definitions are
-signalled using die() and will terminate the calling program unless
-caught by exception handling.
 
 =head1 Troubleshooting
 
