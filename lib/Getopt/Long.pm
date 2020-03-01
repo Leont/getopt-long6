@@ -54,6 +54,22 @@ my sub io-converter(Str:D $value --> IO::Path) {
 	}}
 }
 
+my sub datetime-converter(Str:D $value --> DateTime) {
+	return DateTime.new($value);
+
+	CATCH { when X::Temporal {
+		die ValueInvalid.new(qq{Can not convert %s argument "$value" to datetime: $_.message()});
+	}}
+}
+
+my sub date-converter(Str:D $value --> Date) {
+	return Date.new($value);
+
+	CATCH { when X::Temporal {
+		die ValueInvalid.new(qq{Can not convert %s argument "$value" to date: $_.message()});
+	}}
+}
+
 my sub maybe-converter(Str:D $value --> Any) {
 	return val($value);
 }
@@ -160,7 +176,9 @@ my sub converter-for-format(Str:D $format) {
 		f => &num-converter,
 		r => &rat-converter,
 		c => &complex-converter,
-		p => &io-converter;
+		p => &io-converter,
+		d => &datetime-converter,
+		a => &date-converter;
 	return %converter-for-format{$format} // die Exception.new("No such format $format");
 };
 
@@ -252,6 +270,8 @@ sub get-converter(Any:U $type) {
 		(Complex)  => &complex-converter,
 		(Str)      => &null-converter,
 		(IO::Path) => &io-converter,
+		(DateTime) => &datetime-converter,
+		(Date)     => &date-converter,
 		(Any)      => &maybe-converter,
 	);
 
@@ -632,6 +652,8 @@ It supports the following types for named and positional arguments:
 =item Real
 =item Complex
 =item IO::Path
+=item DateTime
+=item Date
 
 It also supports any enum type.
 
@@ -946,6 +968,20 @@ Complex number (C<Complex>). For example C<1+2i>.
 p
 
 Path (C<IO::Path>). For example C<foo/bar.txt>.
+
+=end item2
+
+=begin item2
+d
+
+A date and time (C<DateTime>). For example C<2019-12-30T01:23:45-0700>.
+
+=end item2
+
+=begin item2
+a
+
+A Date (C<Date>). For example C<2019-12-30>.
 
 =end item2
 

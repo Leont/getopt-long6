@@ -115,4 +115,11 @@ my $getopt6 = Getopt::Long.new-from-sub(&main2);
 my $capture29 = $getopt5.get-options(["1", "2.5"]);
 is($capture29, \(1, 2.5), 'Typed positionals work on multis as well');
 
+my $getopt7 = Getopt::Long.new-from-sub(sub (DateTime :$datetime) { });
+my $capture30 = $getopt7.get-options(<--datetime 2015-11-21T08:01:00+0100 >);
+is($capture30, \(:datetime(DateTime.new(:2015year, :11month, :21day, :8hour, :1minute, :3600timezone))), 'Can parse DateTime');
+
+my $capture31 = get-options-from(<--date 2015-11-21>, <date=a>);
+is-deeply($capture31, \(:date(Date.new(:2015year, :11month, :21day))), 'Can parse Date');
+
 done-testing;
