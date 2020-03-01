@@ -901,9 +901,6 @@ it with "no" or "no-". E.g. C<"foo!"> will allow C<--foo> (a value of
 0 will be assigned). If the option has aliases, this applies to the
 aliases as well.
 
-Using negation on a single letter option when bundling is in effect is
-pointless and will result in a warning.
-
 =end item
 
 =begin item
@@ -1058,28 +1055,6 @@ The following two calls behave identically:
 
 =head2 Bundling
 
-With bundling it is possible to set several single-character options
-at once. For example if C<a>, C<v> and C<x> are all valid options,
-
-    -vax
-
-will set all three.
-
-Getopt::Long supports three styles of bundling. To enable bundling, a
-call to Getopt::Long::Configure is required.
-
-Configured this way, single-character options can be bundled but long
-options B<must> always start with a double dash C<--> to avoid
-ambiguity. For example, when C<vax>, C<a>, C<v> and C<x> are all valid
-options,
-
-    -vax
-
-will set C<a>, C<v> and C<x>, but
-
-    --vax
-
-will set C<vax>.
 
 =head1 Configuring Getopt::Long
 
