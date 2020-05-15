@@ -16,6 +16,13 @@ SYNOPSIS
 or
 
     use Getopt::Long;
+    my $options = get-options("length=i", # numeric
+                              "file=s",   # string
+                              "verbose"); # flag
+
+or
+
+    use Getopt::Long;
     sub MAIN(Int :$length, Str :$file, Bool :$verbose) { ... }
 
 DESCRIPTION
