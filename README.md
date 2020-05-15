@@ -10,7 +10,7 @@ SYNOPSIS
 
     use Getopt::Long;
     get-options("length=i" => my $length, # numeric
-                "file=s"   => my $file    # string
+                "file=s"   => my $file,   # string
                 "verbose"  => my $verbose); # flag
 
 or
