@@ -565,8 +565,13 @@ Getopt::Long
 
   use Getopt::Long;
   get-options("length=i" => my $length, # numeric
-              "file=s"   => my $file    # string
+              "file=s"   => my $file,   # string
               "verbose"  => my $verbose); # flag
+
+  use Getopt::Long;
+  my $options = get-options("length=i", # numeric
+                            "file=s",   # string
+                            "verbose"); # flag
 
 or
 
