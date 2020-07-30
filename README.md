@@ -158,7 +158,7 @@ Usually programs take command line options as well as other arguments, for examp
 
     --size 24 -- --all
 
-In this example, `--all` will *not* be treated as an option, but passed to the program unharmed, in `@ARGV`.
+In this example, `--all` will *not* be treated as an option, but passed to the program unharmed, in `@*ARGS`.
 
 Options with values
 -------------------
@@ -362,7 +362,7 @@ Configuration options can be passed to the constructor as named arguments:
 Parsing options from an arbitrary array
 ---------------------------------------
 
-By default, get-options parses the options that are present in the global array `@*ARGV`. A special entry `get-options-from` can be used to parse options from an arbitrary array.
+By default, get-options parses the options that are present in the global array `@*ARGS`. A special entry `get-options-from` can be used to parse options from an arbitrary array.
 
     use Getopt::Long;
     $ret = get-options-from(@myargs, ...);
@@ -455,4 +455,3 @@ AUTHOR
 ======
 
 Leon Timmermans <fawaka@gmail.com>
-

@@ -740,7 +740,7 @@ insert a double dash C<--> on the command line:
     --size 24 -- --all
 
 In this example, C<--all> will I<not> be treated as an option, but
-passed to the program unharmed, in C<@ARGV>.
+passed to the program unharmed, in C<@*ARGS>.
 
 =head2 Options with values
 
@@ -1042,7 +1042,7 @@ arguments:
 =head2 Parsing options from an arbitrary array
 
 By default, get-options parses the options that are present in the
-global array C<@*ARGV>. A special entry C<get-options-from> can be
+global array C<@*ARGS>. A special entry C<get-options-from> can be
 used to parse options from an arbitrary array.
 
     use Getopt::Long;
