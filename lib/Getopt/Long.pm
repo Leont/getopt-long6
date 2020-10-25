@@ -484,7 +484,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 		}
 	}
 	@$write-args = @list if $write-args;
-	state Str @labels = flat <first second third fourth fifth sixth seventh eighth nineth tenth some> ... *;
+	state Str @labels = flat <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 	my &fallback-converter = $compat-positional ?? &maybe-converter !! &null-converter;
 	my @converters = |@!positionals, &fallback-converter, *;
 	@list = (@labels Z @list Z @converters).map: { wrap-exceptions(|@^args) }
