@@ -13,8 +13,6 @@ SYNOPSIS
                 "file=s"   => my $file,   # string
                 "verbose"  => my $verbose); # flag
 
-or
-
     use Getopt::Long;
     my $options = get-options("length=i", # numeric
                               "file=s",   # string
@@ -455,3 +453,4 @@ AUTHOR
 ======
 
 Leon Timmermans <fawaka@gmail.com>
+

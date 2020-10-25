@@ -1,7 +1,7 @@
 use v6;
 use fatal;
 
-unit class Getopt::Long:ver<0.1.6>;
+unit class Getopt::Long:ver<0.1.7>;
 
 role Exceptional is CORE::Exception {
 }
