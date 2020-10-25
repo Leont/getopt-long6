@@ -384,7 +384,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 			when X::Str::Numeric {
 				$_ does role :: does Exceptional {
 					method message() {
-						qq{Cannot convert $description "$value" to number: $.reason};
+						qq{Cannot convert $description argument "$value" to number: $.reason};
 					}
 				}
 				.rethrow;
@@ -392,7 +392,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 			when X::Numeric::CannotConvert {
 				$_ does role :: does Exceptional {
 					method message() {
-						"Cannot convert $description $.source to {$.target // $.target.perl}: $.reason"
+						"Cannot convert $description argument $.source to {$.target // $.target.perl}: $.reason"
 					}
 				}
 				.rethrow;
