@@ -2,6 +2,9 @@ Revision history for Getopt-Long
 
 {{$NEXT}}
 
+0.1.8  2020-10-25T20:07:39+01:00
+    - Fix compatibility with rakudo 2019.07
+
 0.1.7  2020-10-25T13:47:29+01:00
     - Don't throw away positional arguments beyond the tenth
 
