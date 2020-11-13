@@ -122,4 +122,7 @@ is($capture30, \(:datetime(DateTime.new(:2015year, :11month, :21day, :8hour, :1m
 my $capture31 = get-options-from(<--date 2015-11-21>, <date=a>);
 is-deeply($capture31, \(:date(Date.new(:2015year, :11month, :21day))), 'Can parse Date');
 
+my $capture32 = get-options-from(<--lo --lon>, <long+>, :auto-abbreviate);
+is-deeply($capture32, \(:2long), 'Can auto-abbreviate');
+
 done-testing;

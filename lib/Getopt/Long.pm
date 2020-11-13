@@ -372,7 +372,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	return self.new(:%options, :@positionals);
 }
 
-method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
+method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$auto-abbreviate = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
 	my @list;
 
 	sub wrap-exceptions(Str $description, Str $value, &action) {
@@ -406,7 +406,24 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 		my $consumed = 0;
 
 		sub get-option($key) {
-			return %!options{$key} // die Exception.new("Unknown option $key");
+			with %!options{$key} -> $option {
+				return $option;
+			}
+			elsif $auto-abbreviate {
+				my @names = %!options.keys.grep(*.starts-with($key));
+				if @names == 1 {
+					return %!options{ @names[0] };
+				}
+				elsif @names > 1 {
+					die Exception.new("Ambiguous partial option '$key', possible interpretations: @names[]");
+				}
+				else {
+					die Exception.new("Unknown option $key");
+				}
+			}
+			else {
+				die Exception.new("Unknown option $key");
+			}
 		}
 
 		sub take-value($option, $value) {
@@ -1080,6 +1097,14 @@ If C<permute> is enabled, this means that
 is equivalent to
 
     --foo --bar arg1 arg2 arg3
+
+=end item
+
+=begin item
+auto-abbreviate (default: False)
+
+Enabling this allows option names to be abbreviated to uniqueness (e.g.
+`--foo` can be written as `--f` if no other option starts with an `f`).
 
 =end item
 

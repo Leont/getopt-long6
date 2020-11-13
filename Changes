@@ -1,6 +1,7 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+    - Add auto-abbreviate option
 
 0.1.8  2020-10-25T20:07:39+01:00
     - Fix compatibility with rakudo 2019.07
