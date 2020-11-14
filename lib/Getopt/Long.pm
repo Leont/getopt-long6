@@ -182,6 +182,8 @@ my sub converter-for-format(Str:D $format) {
 	return %converter-for-format{$format} // die Exception.new("No such format $format");
 };
 
+my rule name { [\w+]+ % '-' | '?' }
+
 my grammar Argument {
 	token TOP {
 		<names> <argument>
@@ -191,7 +193,7 @@ my grammar Argument {
 	}
 
 	token names {
-		[ $<name>=[<[\w-]>+ | '?'] ]+ % '|'
+		<name>+ % '|'
 		{ make @<name>».Str.list }
 	}
 
@@ -458,7 +460,9 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 			}
 		}
 
-		if $compat-singles && $head ~~ / ^ '-' $<name>=<alnum> '=' $<value>=[.*] / -> $/ {
+		my rule name { [\w+]+ % '-' | '?' }
+
+		if $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
 			my $option = get-option($<name>);
 			die Exception.new("$<name> doesn't take one argument") if $option.arity.max != 1;
 			take-value($option, ~$<value>);
@@ -480,16 +484,16 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$perm
 			@list.append: |@args;
 			last;
 		}
-		elsif $head ~~ / ^ '-' ** 1..2 $<name>=[\w <[\w-]>*] $ / -> $/ {
+		elsif $head ~~ / ^ '-' ** 1..2 <name> $ / -> $/ {
 			take-args(get-option($<name>));
 		}
-		elsif $head ~~ / ^ '--' $<name>=[<[\w-]>+] '=' $<value>=[.*] / -> $/ {
+		elsif $head ~~ / ^ '--' <name> '=' $<value>=[.*] / -> $/ {
 			my $option = get-option($<name>);
 			die Exception.new("$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
 		}
-		elsif $compat-negation && $head ~~ / ^ '-' ** 1..2 '/' $<name>=[\w <[\w-]>*] ['=' $<value>=[.*]]?  $ / {
+		elsif $compat-negation && $head ~~ / ^ '-' ** 1..2 '/' <name> ['=' $<value>=[.*]]?  $ / {
 			if $<value> {
 				my $option = get-option($<name>);
 				die Exception.new("$<name> doesn't take an argument") if $option.arity.max != 1;
