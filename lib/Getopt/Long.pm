@@ -383,7 +383,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	return self.new(:%options, :@positionals);
 }
 
-method get-options(Getopt::Long:D: @args is copy, :%hash, :named-anywhere(:$permute) = False, :$auto-abbreviate = False, :$compat-builtin = False, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
+method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
 	my @list;
 
 	sub wrap-exceptions(Str $description, Str $value, &action) {
@@ -1104,22 +1104,6 @@ to configure. When using Getopt::Long as a C<MAIN> wrapper, you can set
 them using the C<%*SUB-MAIN-OPTS> variable:
 
 =begin item
-permute (default: C<False>)
-
-Whether command line arguments are allowed to be mixed with options.
-Default is disabled.
-
-If C<permute> is enabled, this means that
-
-    --foo arg1 --bar arg2 arg3
-
-is equivalent to
-
-    --foo --bar arg1 arg2 arg3
-
-=end item
-
-=begin item
 auto-abbreviate (default: C<False>)
 
 Enabling this allows option names to be abbreviated to uniqueness (e.g.
@@ -1132,7 +1116,8 @@ compat-builtin (default: C<False>)
 
 Enable all compatibility options that make argument parsing more like
 the builtin argument parsing. Currently that means disabling C<bundling>
-and enabling C<compat-singles>, C<compat-negation> and C<compat-positional>.
+and C<permute>, and enabling C<compat-singles>, C<compat-negation> and
+C<compat-positional>.
 
 =end item
 
@@ -1152,6 +1137,22 @@ arguments and option settings are:
     -l, --l          l
     -all             a, l
     --all            all
+
+=end item
+
+=begin item
+permute (default: C<!$compat-builtin>)
+
+Whether command line arguments are allowed to be mixed with options.
+Default is enabled unless C<$compat-builtin> is set.
+
+If C<permute> is enabled, this means that
+
+    --foo arg1 --bar arg2 arg3
+
+is equivalent to
+
+    --foo --bar arg1 arg2 arg3
 
 =end item
 

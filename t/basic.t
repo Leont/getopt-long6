@@ -141,4 +141,7 @@ throws-like({ Getopt::Long.new-from-sub(sub (Cool :$bar) {}) }, Getopt::Long::Ex
 my $capture34 = get-options-from(['-vjb'], <v j=s b>);
 is-deeply($capture34, \(:v, :j<b>));
 
+my $capture35 = get-options-from(<--foo baz --bar>, <foo bar>, :!permute);
+is-deeply($capture35, \(:foo, 'baz', '--bar'));
+
 done-testing;
