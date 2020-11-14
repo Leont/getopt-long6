@@ -93,7 +93,9 @@ It supports the following types for named and positional arguments:
 
   * Date
 
-It also supports any enum type.
+It also supports any enum type, as well as any type that implements the Getopt::Long::Parseable role, e.g.:
+
+class FourtyTwo does Parseable { has Int $.value; method parse-argument(Int(Str) $value) { die Getopt::Long::Invalid("Argument %s is not 42") if $value != 42; return FourtyTwo.new(:$value); } }
 
 Simple options
 --------------
@@ -370,17 +372,35 @@ The following two calls behave identically:
     $ret = get-options( ... );
     $ret = get-options-from(@*ARGS, :overwrite, ... );
 
-Bundling
---------
-
 Configuring Getopt::Long
 ========================
 
 `get-options` and `get-options-from` take the following named options to configure. When using Getopt::Long as a `MAIN` wrapper, you can set them using the `%*SUB-MAIN-OPTS` variable:
 
-  * permute (default:disabled)
+  * auto-abbreviate (default: `False`)
 
-    Whether command line arguments are allowed to be mixed with options. Default is disabled.
+    Enabling this allows option names to be abbreviated to uniqueness (e.g. `--foo` can be written as `--f` if no other option starts with an `f`).
+
+  * compat-builtin (default: `False`)
+
+    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and `permute`, and enabling `compat-singles`, `compat-negation` and `compat-positional`.
+
+  * bundling (default: `!$compat-builtin`)
+
+    Enabling this option will allow single-character options to be bundled. To distinguish bundles from long option names, long options *must* be introduced with `--` and bundles with `-`.
+
+    Note that, if you have options `a`, `l` and `all`, possible arguments and option settings are:
+
+        using argument   sets option(s)
+        -------------------------------
+        -a, --a          a
+        -l, --l          l
+        -all             a, l
+        --all            all
+
+  * permute (default: `!$compat-builtin`)
+
+    Whether command line arguments are allowed to be mixed with options. Default is enabled unless `$compat-builtin` is set.
 
     If `permute` is enabled, this means that
 
@@ -389,23 +409,6 @@ Configuring Getopt::Long
     is equivalent to
 
         --foo --bar arg1 arg2 arg3
-
-  * compat-builtin (default: disabled)
-
-    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and enabling `compat-singles`, `compat-negation` and `compat-positional`.
-
-  * bundling (default: `!$compat-builtin`)
-
-    Enabling this option will allow single-character options to be bundled. To distinguish bundles from long option names, long options *must* be introduced with `--` and bundles with `-`.
-
-    Note that, if you have options `a`, `l` and `all`, , possible arguments and option settings are:
-
-        using argument   sets option(s)
-        -------------------------------
-        -a, --a          a
-        -l, --l          l
-        -all             a, l
-        --all            all
 
   * compat-singles (default: `$compat-builtin`)
 
@@ -422,7 +425,7 @@ Configuring Getopt::Long
 Return values and Errors
 ========================
 
-`get-options` returns a capture to indicate success.
+`get-options` returns a capture to indicate success, or throws an `Getopt::Long::Exceptional` otherwise.
 
 Troubleshooting
 ===============
