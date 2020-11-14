@@ -125,4 +125,17 @@ is-deeply($capture31, \(:date(Date.new(:2015year, :11month, :21day))), 'Can pars
 my $capture32 = get-options-from(<--lo --lon>, <long+>, :auto-abbreviate);
 is-deeply($capture32, \(:2long), 'Can auto-abbreviate');
 
+class Foo does Getopt::Long::Parseable {
+	has Int:D $.value is required;
+	method parse-argument(Str $value) {
+		return Foo.new(:value($value.Int));
+	}
+}
+
+my $getopt8 = Getopt::Long.new-from-sub(sub (Foo :$foo) { });
+my $capture33 = $getopt8.get-options(['--foo', '1']);
+is-deeply($capture33<foo>, Foo.new(:value(1)), 'Parse a custom parseable type');
+
+throws-like({ Getopt::Long.new-from-sub(sub (Cool :$bar) {}) }, Getopt::Long::Exception, 'No conversion known for type Cool');
+
 done-testing;
