@@ -138,4 +138,7 @@ is-deeply($capture33<foo>, Foo.new(:value(1)), 'Parse a custom parseable type');
 
 throws-like({ Getopt::Long.new-from-sub(sub (Cool :$bar) {}) }, Getopt::Long::Exception, 'No conversion known for type Cool');
 
+my $capture34 = get-options-from(['-vjb'], <v j=s b>);
+is-deeply($capture34, \(:v, :j<b>));
+
 done-testing;

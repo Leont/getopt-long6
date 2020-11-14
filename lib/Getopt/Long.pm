@@ -1097,9 +1097,6 @@ The following two calls behave identically:
     $ret = get-options( ... );
     $ret = get-options-from(@*ARGS, :overwrite, ... );
 
-=head2 Bundling
-
-
 =head1 Configuring Getopt::Long
 
 C<get-options> and C<get-options-from> take the following named options
@@ -1146,7 +1143,7 @@ Enabling this option will allow single-character options to be
 bundled. To distinguish bundles from long option names, long options
 I<must> be introduced with C<--> and bundles with C<->.
 
-Note that, if you have options C<a>, C<l> and C<all>, , possible
+Note that, if you have options C<a>, C<l> and C<all>, possible
 arguments and option settings are:
 
     using argument   sets option(s)
