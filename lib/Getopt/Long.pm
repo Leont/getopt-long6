@@ -1085,7 +1085,7 @@ to configure. When using Getopt::Long as a C<MAIN> wrapper, you can set
 them using the C<%*SUB-MAIN-OPTS> variable:
 
 =begin item
-permute (default:disabled)
+permute (default: C<False>)
 
 Whether command line arguments are allowed to be mixed with options.
 Default is disabled.
@@ -1101,7 +1101,7 @@ is equivalent to
 =end item
 
 =begin item
-auto-abbreviate (default: False)
+auto-abbreviate (default: C<False>)
 
 Enabling this allows option names to be abbreviated to uniqueness (e.g.
 `--foo` can be written as `--f` if no other option starts with an `f`).
@@ -1109,7 +1109,7 @@ Enabling this allows option names to be abbreviated to uniqueness (e.g.
 =end item
 
 =begin item
-compat-builtin (default: disabled)
+compat-builtin (default: C<False>)
 
 Enable all compatibility options that make argument parsing more like
 the builtin argument parsing. Currently that means disabling C<bundling>
