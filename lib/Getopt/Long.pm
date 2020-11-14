@@ -1165,7 +1165,8 @@ possible.
 
 =head1 Return values and Errors
 
-C<get-options> returns a capture to indicate success.
+C<get-options> returns a capture to indicate success, or throws an
+C<Getopt::Long::Exceptional> otherwise.
 
 =head1 Troubleshooting
 
