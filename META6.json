@@ -13,7 +13,7 @@
   },
   "resources" : [ ],
   "source-url" : "https://github.com/Leont/getopt-long6.git",
-  "tags" : [ ],
+  "tags" : [ "command", "getopt", "main" ],
   "test-depends" : [ ],
   "version" : "0.1.8"
 }
