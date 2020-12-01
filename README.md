@@ -383,7 +383,7 @@ Configuring Getopt::Long
 
   * compat-builtin (default: `False`)
 
-    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and `permute`, and enabling `compat-singles`, `compat-negation` and `compat-positional`.
+    Enable all compatibility options that make argument parsing more like the builtin argument parsing. Currently that means disabling `bundling` and `permute`, and enabling `compat-singles`, `compat-negation`, `compat-positional` and `auto-help`)
 
   * bundling (default: `!$compat-builtin`)
 
@@ -421,6 +421,10 @@ Configuring Getopt::Long
   * compat-positional (default: `$compat-builtin`)
 
     Enabling this will turn all positional arguments into allomorphs, if possible.
+
+  * auto-help (default: `$compat-builtin`)
+
+    This adds an extra --help option, that can hook into Raku's built-in usage message generator.
 
 Return values and Errors
 ========================

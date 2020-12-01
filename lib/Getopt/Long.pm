@@ -383,7 +383,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	return self.new(:%options, :@positionals);
 }
 
-method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$write-args) {
+method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
 	my @list;
 
 	sub wrap-exceptions(Str $description, Str $value, &action) {
@@ -419,6 +419,9 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		sub get-option($key) {
 			with %!options{$key} -> $option {
 				return $option;
+			}
+			elsif $key eq 'help' && $auto-help {
+				return Option.new(:name<help>, :store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
 			}
 			elsif $auto-abbreviate {
 				my @names = %!options.keys.grep(*.starts-with($key));
@@ -1116,8 +1119,8 @@ compat-builtin (default: C<False>)
 
 Enable all compatibility options that make argument parsing more like
 the builtin argument parsing. Currently that means disabling C<bundling>
-and C<permute>, and enabling C<compat-singles>, C<compat-negation> and
-C<compat-positional>.
+and C<permute>, and enabling C<compat-singles>, C<compat-negation>,
+C<compat-positional> and C<auto-help>)
 
 =end item
 
@@ -1180,6 +1183,14 @@ compat-positional (default: C<$compat-builtin>)
 
 Enabling this will turn all positional arguments into allomorphs, if
 possible.
+
+=end item
+
+=begin item
+auto-help (default: C<$compat-builtin>)
+
+This adds an extra --help option, that can hook into Raku's built-in
+usage message generator.
 
 =end item
 
