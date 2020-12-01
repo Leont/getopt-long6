@@ -23,6 +23,16 @@ our class ValueInvalid does Exceptional {
 	}
 }
 
+class ConverterInvalid does Exceptional {
+	has $.format;
+	method new(Str $format) {
+		return self.bless(:$format);
+	}
+	method rethrow-with(Str $name) {
+		die Exception.new($!format.sprintf($name));
+	}
+}
+
 my sub null-converter(Str:D $value --> Str) {
 	return $value;
 }
@@ -179,7 +189,7 @@ my sub converter-for-format(Str:D $format) {
 		p => &io-converter,
 		d => &datetime-converter,
 		a => &date-converter;
-	return %converter-for-format{$format} // die Exception.new("No such format $format");
+	return %converter-for-format{$format} // die ConverterInvalid.new("No such format $format for %s");
 };
 
 my rule name { [\w+]+ % '-' | '?' }
@@ -256,8 +266,11 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str :$positionals = "") {
 			}
 		}
 		else {
-			die Exception.new("Couldn't parse '$pattern'");
+			die Exception.new("Couldn't parse argument specification '$pattern'");
 		}
+		CATCH { when ConverterInvalid {
+			.rethrow-with("pattern $pattern");
+		}}
 	}
 	my @positionals = $positionals.comb.map(&converter-for-format);
 	return self.new(:%options, :@positionals);
@@ -298,7 +311,7 @@ sub get-converter(Any:U $type) {
 		return $callback;
 	}
 	else {
-		die Exception.new("No conversion known for type {$type.^name}");
+		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
 	}
 }
 
@@ -307,11 +320,12 @@ my role Formatted {
 }
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, :traits) {
+	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Argument.parse($getopt, :rule('argument')) -> $match {
 		return $param does Formatted(:format($match.ast));
 	}
 	else {
-		die Exception.new("Couldn't parse '$getopt'");
+		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$getopt'");
 	}
 }
 
@@ -355,6 +369,9 @@ my multi get-named($candidate) {
 				my $converter = get-converter($type);
 				@options.append: make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
 			}
+			CATCH { when ConverterInvalid {
+				.rethrow-with("parameter {$param.name}");
+			}}
 		}
 	}
 	return @options;
@@ -362,6 +379,8 @@ my multi get-named($candidate) {
 my multi get-named(Parsed $candidate) {
 	return $candidate.getopt!options;
 }
+
+my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 
 method new-from-sub(Getopt::Long:U: Sub $main) {
 	my (%options, @positional-types);
@@ -378,6 +397,9 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	my @positionals = (0 ..^ $elem-max).map: -> $index {
 		my @types = @positional-types.grep(* > $index)»[$index];
 		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
+		CATCH { when ConverterInvalid {
+			.rethrow-with(@ordinals[$index]);
+		}}
 		get-converter(@types[0]);
 	}
 	return self.new(:%options, :@positionals);
@@ -429,14 +451,14 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 					return %!options{ @names[0] };
 				}
 				elsif @names > 1 {
-					die Exception.new("Ambiguous partial option '$key', possible interpretations: @names[]");
+					die Exception.new("Ambiguous partial option --$key, possible interpretations: @names[]");
 				}
 				else {
-					die Exception.new("Unknown option $key");
+					die Exception.new("Unknown option --$key");
 				}
 			}
 			else {
-				die Exception.new("Unknown option $key");
+				die Exception.new("Unknown option --$key");
 			}
 		}
 
@@ -459,7 +481,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				$option.store-default(%hash);
 			}
 			elsif $consumed < $option.arity.min {
-				die Exception.new("No argument given for option {$option.name}");
+				die Exception.new("The argument --{$option.name} requires a value but none was specified");
 			}
 		}
 
@@ -467,7 +489,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 		if $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
 			my $option = get-option($<name>);
-			die Exception.new("$<name> doesn't take one argument") if $option.arity.max != 1;
+			die Exception.new("--$<name> doesn't take one argument") if $option.arity.max != 1;
 			take-value($option, ~$<value>);
 		}
 		elsif $bundling && $head ~~ / ^ '-' $<values>=[\w .* ] $ / -> $/ {
@@ -492,14 +514,14 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 		elsif $head ~~ / ^ '--' <name> '=' $<value>=[.*] / -> $/ {
 			my $option = get-option($<name>);
-			die Exception.new("$<name> doesn't take arguments") if $option.arity.max == 0;
+			die Exception.new("Option --$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
 		}
 		elsif $compat-negation && $head ~~ / ^ '-' ** 1..2 '/' <name> ['=' $<value>=[.*]]?  $ / {
 			if $<value> {
 				my $option = get-option($<name>);
-				die Exception.new("$<name> doesn't take an argument") if $option.arity.max != 1;
+				die Exception.new("Option --$<name> doesn't take an argument") if $option.arity.max != 1;
 				take-value($option, ~$<value> but False);
 			}
 			else {
@@ -517,10 +539,9 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 	}
 	@$write-args = @list if $write-args;
-	state Str @labels = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 	my &fallback-converter = $compat-positional ?? &maybe-converter !! &null-converter;
 	my @converters = |@!positionals, &fallback-converter, *;
-	@list = (@labels Z @list Z @converters).map: { wrap-exceptions(|@^args) }
+	@list = (@ordinals Z @list Z @converters).map: { wrap-exceptions(|@^args) }
 	return \(|@list, |%hash);
 }
 
