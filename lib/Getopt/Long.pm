@@ -13,7 +13,7 @@ class Exception does Exceptional {
 	}
 }
 
-our class ValueInvalid does Exceptional {
+class ValueInvalid does Exceptional {
 	has Str:D $.format is required;
 	method new(Str $format) {
 		return self.bless(:$format);
@@ -257,10 +257,6 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	return self.new(:%options, :@positionals);
 }
 
-our role Parseable {
-	method parse-argument(Parseable:U: Str $value) { ... }
-}
-
 sub get-converter(Any:U $type) {
 	if %converter-for-type{$type} -> &converter {
 		return &converter;
@@ -270,11 +266,6 @@ sub get-converter(Any:U $type) {
 		return sub enum-converter(Str $value) {
 			return $type.WHO{$value} // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
 		}
-	}
-	elsif $type ~~ Parseable {
-		my $callback = sub (Str $value) { return $type.parse-argument($value) };
-		trait_mod:<returns>($callback, $type);
-		return $callback;
 	}
 	else {
 		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
@@ -658,16 +649,7 @@ It supports the following types for named and positional arguments:
 =item DateTime
 =item Date
 
-It also supports any enum type, as well as any type that implements
-the Getopt::Long::Parseable role, e.g.:
-
-class FourtyTwo does Parseable {
-  has Int $.value;
-  method parse-argument(Int(Str) $value) {
-    die Getopt::Long::Invalid("Argument %s is not 42") if $value != 42;
-    return FourtyTwo.new(:$value);
-  }
-}
+It also supports any enum type.
 
 =head2 Simple options
 
