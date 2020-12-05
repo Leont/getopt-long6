@@ -7,14 +7,14 @@ role Exceptional is Exception {
 }
 
 class Exception does Exceptional {
-	has $.message;
+	has Str:D $.message is required;
 	method new(Str $message) {
 		return self.bless(:$message);
 	}
 }
 
 our class ValueInvalid does Exceptional {
-	has $.format;
+	has Str:D $.format is required;
 	method new(Str $format) {
 		return self.bless(:$format);
 	}
@@ -86,15 +86,15 @@ my sub maybe-converter(Str:D $value --> Any) {
 
 my role Store {
 	has Str:D $.key is required;
-	has Sub:D $.converter = &null-converter;
+	has Code:D $.converter = &null-converter;
 	has Junction:D $.constraints = all();
-	method check-constraints($value) {
+	method check-constraints(Any:D $value) {
 		die ValueInvalid.new(qq{Can't accept %s argument "$value" because it fails its constraints}) unless $value ~~ $!constraints;
 	}
-	method store-convert($value, $hash) {
+	method store-convert(Str:D $value, Hash:D $hash) {
 		self.store-direct($!converter($value), $hash);
 	}
-	method store-direct($value, $hash) { ... }
+	method store-direct(Any:D $value, Hash:D $hash) { ... }
 }
 
 my class ScalarStore does Store {
@@ -105,7 +105,7 @@ my class ScalarStore does Store {
 }
 
 my class CountStore does Store {
-	method store-direct(Any:D $value, Hash:D $hash) {
+	method store-direct(Int:D $value, Hash:D $hash) {
 		$hash{$!key} += $value;
 	}
 }
@@ -219,7 +219,7 @@ my grammar Argument {
 
 	token counter {
 		'+'
-		{ make [ CountStore, {}, 0..0 ] }
+		{ make [ CountStore, {}, 0..0, { :1default } ] }
 	}
 
 	token type {
@@ -257,7 +257,7 @@ my grammar Argument {
 	}
 }
 
-method new-from-patterns(Getopt::Long:U: @patterns, Str :$positionals = "") {
+method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
@@ -316,13 +316,14 @@ sub get-converter(Any:U $type) {
 }
 
 my role Formatted {
-	has Positional $.format is required;
+	has $.format is required;
 }
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Argument.parse($getopt, :rule('argument')) -> $match {
-		return $param does Formatted(:format($match.ast));
+		my @format = $match.ast;
+		return $param does Formatted(:format(@format));
 	}
 	else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$getopt'");
@@ -337,17 +338,17 @@ multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
 	$sub does Parsed(Getopt::Long.new-from-sub($sub));
 }
 
-my multi get-positionals($candidate) {
-	return $candidate.signature.params.grep(*.positional).map(*.type);
+my multi get-positionals(&candidate) {
+	return &candidate.signature.params.grep(*.positional).map(*.type);
 }
 
-my multi get-positionals(Parsed $candidate) {
-	return $candidate.getopt!positionals;
+my multi get-positionals(&candidate where Parsed) {
+	return &candidate.getopt!positionals;
 }
 
-my multi get-named($candidate) {
+my multi get-named(&candidate) {
 	my @options;
-	for $candidate.signature.params.grep(*.named) -> $param {
+	for &candidate.signature.params.grep(*.named) -> $param {
 		my @names = $param.named_names;
 		if $param ~~ Formatted {
 			@options.append: make-option(@names, |$param.format.list);
@@ -376,8 +377,8 @@ my multi get-named($candidate) {
 	}
 	return @options;
 }
-my multi get-named(Parsed $candidate) {
-	return $candidate.getopt!options;
+my multi get-named(&candidate where Parsed) {
+	return &candidate.getopt!options;
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
@@ -438,7 +439,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 		my $consumed = 0;
 
-		sub get-option($key) {
+		sub get-option(Str:D $key) {
 			with %!options{$key} -> $option {
 				return $option;
 			}
@@ -462,13 +463,13 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			}
 		}
 
-		sub take-value($option, $value) {
+		sub take-value(Option:D $option, Str:D $value) {
 			wrap-exceptions("--$option.name()", $value, -> $value {
 				$option.store($value, %hash);
 				$consumed++;
 			});
 		}
-		sub take-args($option) {
+		sub take-args(Option:D $option) {
 			while @args && $consumed < $option.arity.min {
 				take-value($option, @args.shift);
 			}
@@ -488,7 +489,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		my rule name { [\w+]+ % '-' | '?' }
 
 		if $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option($<name>);
+			my $option = get-option(~$<name>);
 			die Exception.new("--$<name> doesn't take one argument") if $option.arity.max != 1;
 			take-value($option, ~$<value>);
 		}
@@ -510,17 +511,17 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			last;
 		}
 		elsif $head ~~ / ^ '-' ** 1..2 <name> $ / -> $/ {
-			take-args(get-option($<name>));
+			take-args(get-option(~$<name>));
 		}
 		elsif $head ~~ / ^ '--' <name> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option($<name>);
+			my $option = get-option(~$<name>);
 			die Exception.new("Option --$<name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>);
 			take-args($option);
 		}
 		elsif $compat-negation && $head ~~ / ^ '-' ** 1..2 '/' <name> ['=' $<value>=[.*]]?  $ / {
 			if $<value> {
-				my $option = get-option($<name>);
+				my $option = get-option(~$<name>);
 				die Exception.new("Option --$<name> doesn't take an argument") if $option.arity.max != 1;
 				take-value($option, ~$<value> but False);
 			}
@@ -583,7 +584,7 @@ our sub call-with-getopt(&func, @args, %options?, :$overwrite) is export(:DEFAUL
 	return func(|$capture);
 }
 
-my sub call-main(CallFrame $callframe, $retval) {
+my sub call-main(CallFrame $callframe, Any $retval) {
 	my $main = $callframe.my<&MAIN>;
 	return $retval unless $main;
 	my %options = %*SUB-MAIN-OPTS // {};
