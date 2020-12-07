@@ -93,7 +93,7 @@ It supports the following types for named and positional arguments:
 
   * Date
 
-It also supports any enum type, as well as any type that implements the Getopt::Long::Parseable role, e.g.:
+It also supports any enum type, and any coercion type that uses any of the aforementioned types as its contraint type (e.g. `Foo(Str)`).
 
 class FourtyTwo does Parseable { has Int $.value; method parse-argument(Int(Str) $value) { die Getopt::Long::Invalid("Argument %s is not 42") if $value != 42; return FourtyTwo.new(:$value); } }
 

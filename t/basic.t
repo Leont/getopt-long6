@@ -125,6 +125,21 @@ is-deeply($capture31, \(:date(Date.new(:2015year, :11month, :21day))), 'Can pars
 my $capture32 = get-options-from(<--lo --lon>, <long+>, :auto-abbreviate);
 is-deeply($capture32, \(:2long), 'Can auto-abbreviate');
 
+class Foo {
+	has Int:D $.value is required;
+	method COERCE(Int(Str) $value) {
+		return Foo.new(:$value);
+	}
+}
+
+my $getopt8 = Getopt::Long.new-from-sub(sub (Foo(Str) :$foo) { });
+my $capture33 = $getopt8.get-options(['--foo', '1']);
+is-deeply($capture33<foo>, Foo.new(:value(1)), 'Parse a custom parseable type');
+
+throws-like({
+	call-with-getopt(sub (Signature(Str) :$bar) {dd $bar }, ['--bar', '1']);
+}, Getopt::Long::Exception, 'No conversion known for type Signature');
+
 my $capture34 = get-options-from(['-vjb'], <v j=s b>);
 is-deeply($capture34, \(:v, :j<b>));
 

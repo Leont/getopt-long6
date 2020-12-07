@@ -257,9 +257,16 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	return self.new(:%options, :@positionals);
 }
 
-sub get-converter(Any:U $type) {
+my sub get-converter(Any:U $type) {
+	state $coercion-how = try ::("Metamodel::CoercionHOW");
 	if %converter-for-type{$type} -> &converter {
 		return &converter;
+	}
+	elsif $type.HOW ~~ $coercion-how {
+		my &primary = get-converter($type.^constraint_type());
+		return sub coercion-converter(Str $input) {
+			return $type.^coerce(primary($input));
+		}
 	}
 	elsif $type.HOW ~~ Metamodel::EnumHOW {
 		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
@@ -649,7 +656,8 @@ It supports the following types for named and positional arguments:
 =item DateTime
 =item Date
 
-It also supports any enum type.
+It also supports any enum type, and any coercion type that uses any of
+the aforementioned types as its contraint type (e.g. C<Foo(Str)>).
 
 =head2 Simple options
 
