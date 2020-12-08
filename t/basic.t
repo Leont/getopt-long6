@@ -141,9 +141,9 @@ throws-like({
 }, Getopt::Long::Exception, 'No conversion known for type Signature');
 
 my $capture34 = get-options-from(['-vjb'], <v j=s b>);
-is-deeply($capture34, \(:v, :j<b>));
+is-deeply($capture34, \(:v, :j<b>), 'Bundled options with arguments work');
 
 my $capture35 = get-options-from(<--foo baz --bar>, <foo bar>, :!permute);
-is-deeply($capture35, \(:foo, 'baz', '--bar'));
+is-deeply($capture35, \(:foo, 'baz', '--bar'), ':!permute works');
 
 done-testing;
