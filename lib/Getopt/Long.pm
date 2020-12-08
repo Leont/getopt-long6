@@ -439,7 +439,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 		my $consumed = 0;
 
-		sub get-option(Str:D $key) {
+		sub get-option(Str:D $key, Str:D $name) {
 			with %!options{$key} -> $option {
 				return $option;
 			}
@@ -452,57 +452,57 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 					return %!options{ @names[0] };
 				}
 				elsif @names > 1 {
-					die Exception.new("Ambiguous partial option --$key, possible interpretations: @names[]");
+					die Exception.new("Ambiguous partial option $name, possible interpretations: @names[]");
 				}
 				else {
-					die Exception.new("Unknown option --$key");
+					die Exception.new("Unknown option $name");
 				}
 			}
 			else {
-				die Exception.new("Unknown option --$key");
+				die Exception.new("Unknown option $name");
 			}
 		}
 
-		sub take-value(Option:D $option, Str:D $value) {
-			wrap-exceptions("--$option.name()", $value, -> $value {
+		sub take-value(Option:D $option, Str:D $value, Str:D $name) {
+			wrap-exceptions($name, $value, -> $value {
 				$option.store($value, %hash);
 				$consumed++;
 			});
 		}
-		sub take-args(Option:D $option) {
+		sub take-args(Option:D $option, Str:D $name) {
 			while @args && $consumed < $option.arity.min {
-				take-value($option, @args.shift);
+				take-value($option, @args.shift, $name);
 			}
 
 			while @args && $consumed < $option.arity.max && !@args[0].starts-with('--') {
-				take-value($option, @args.shift);
+				take-value($option, @args.shift, $name);
 			}
 
 			if $consumed == 0 && $option.arity.min == 0 {
 				$option.store-default(%hash);
 			}
 			elsif $consumed < $option.arity.min {
-				die Exception.new("The argument --{$option.name} requires a value but none was specified");
+				die Exception.new("The argument $name requires a value but none was specified");
 			}
 		}
 
 		my rule name { [\w+]+ % '-' | '?' }
 
 		if $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option(~$<name>);
-			die Exception.new("--$<name> doesn't take one argument") if $option.arity.max != 1;
-			take-value($option, ~$<value>);
+			my $option = get-option(~$<name>, "-$<name>");
+			die Exception.new("-$<name> doesn't take an argument") if $option.arity.max != 1;
+			take-value($option, ~$<value>, "-$<name>");
 		}
 		elsif $bundling && $head ~~ / ^ '-' $<values>=[\w .* ] $ / -> $/ {
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
-				my $option = get-option($value);
+				my $option = get-option($value, "-$value");
 				if $option.arity.max > 0 && $index + 1 < @values.elems {
-					take-value($option, $<values>.substr($index + 1));
+					take-value($option, $<values>.substr($index + 1), "-$value");
 				}
 
-				take-args($option);
+				take-args($option, $value);
 				last if $consumed;
 			}
 		}
@@ -511,22 +511,22 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			last;
 		}
 		elsif $head ~~ / ^ '-' ** 1..2 <name> $ / -> $/ {
-			take-args(get-option(~$<name>));
+			take-args(get-option(~$<name>, ~$/), ~$/);
 		}
-		elsif $head ~~ / ^ '--' <name> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option(~$<name>);
-			die Exception.new("Option --$<name> doesn't take arguments") if $option.arity.max == 0;
-			take-value($option, ~$<value>);
-			take-args($option);
+		elsif $head ~~ / ^ $<full-name>=[ '--' <name> ] '=' $<value>=[.*] / -> $/ {
+			my $option = get-option(~$<name>, ~$<full-name>);
+			die Exception.new("Option $<full-name> doesn't take arguments") if $option.arity.max == 0;
+			take-value($option, ~$<value>, ~$<full-name>);
+			take-args($option, ~$<full-name>);
 		}
-		elsif $compat-negation && $head ~~ / ^ '-' ** 1..2 '/' <name> ['=' $<value>=[.*]]?  $ / {
+		elsif $compat-negation && $head ~~ / ^ $<full-name>=[ '-' ** 1..2 '/' <name> ] ['=' $<value>=[.*]]?  $ / {
 			if $<value> {
-				my $option = get-option(~$<name>);
-				die Exception.new("Option --$<name> doesn't take an argument") if $option.arity.max != 1;
-				take-value($option, ~$<value> but False);
+				my $option = get-option(~$<name>, ~$<full-name>);
+				die Exception.new("Option $<full-name> doesn't take an argument") if $option.arity.max != 1;
+				take-value($option, ~$<value> but False, ~$<full-name>);
 			}
 			else {
-				take-args(get-option('no-' ~ $<name>));
+				take-args(get-option('no-' ~ $<name>, ~$<full-name>), ~$<full-name>);
 			}
 		}
 		else {
