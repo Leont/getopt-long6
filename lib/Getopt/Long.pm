@@ -134,7 +134,6 @@ my class HashStore does Store {
 }
 
 my class Option {
-	has Str:D $.name is required;
 	has Range:D $.arity is required;
 	has Store:D $.store is required;
 	has Any $.default;
@@ -156,7 +155,7 @@ method !positionals {
 }
 
 method !options {
-	return %!options.values;
+	return %!options;
 }
 
 my %store-for = (
@@ -166,16 +165,16 @@ my %store-for = (
 );
 
 my sub make-option(@names, Any:U $multi-class, %multi-args, Range $arity, %options-args?, Bool $negatable?) {
-	return flat @names.map: -> $name {
-		my $store = $multi-class.new(|%multi-args, :key(@names[0]));
-		my @options;
-		@options.push: Option.new(:$name, :$store, :$arity, :default, |%options-args);
+	my $store = $multi-class.new(|%multi-args, :key(@names[0]));
+	my %options;
+	for @names -> $name {
+		%options{$name} = Option.new(:$store, :$arity, :default, |%options-args);
 		if $negatable {
-			@options.push: Option.new(:name("no$name"), :$store, :$arity, |%options-args, :!default);
-			@options.push: Option.new(:name("no-$name"), :$store, :$arity, |%options-args, :!default);
+			%options{"no$name"} = Option.new(:$store, :$arity, |%options-args, :!default);
+			%options{"no-$name"} = Option.new(:$store, :$arity, |%options-args, :!default);
 		}
-		@options;
 	}
+	return %options;
 }
 
 my sub converter-for-format(Str:D $format) {
@@ -261,8 +260,8 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	my %options;
 	for @patterns -> $pattern {
 		if Argument.parse($pattern) -> $match {
-			for @($match.ast) -> $option {
-				%options{$option.name} = $option;
+			for $match.ast.kv -> $key, $option {
+				%options{$key} = $option;
 			}
 		}
 		else {
@@ -375,7 +374,7 @@ my multi get-named(&candidate) {
 			}}
 		}
 	}
-	return @options;
+	return @options.hash;
 }
 my multi get-named(&candidate where Parsed) {
 	return &candidate.getopt!options;
@@ -386,11 +385,11 @@ my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth 
 method new-from-sub(Getopt::Long:U: Sub $main) {
 	my (%options, @positional-types);
 	for $main.candidates -> $candidate {
-		for get-named($candidate) -> $option {
-			if %options{$option.name}:exists and %options{$option.name} !eqv $option {
-				die Exception.new("Can't merge arguments for {$option.name}");
+		for get-named($candidate).kv -> $key, $option {
+			if %options{$key}:exists and %options{$key} !eqv $option {
+				die Exception.new("Can't merge arguments for {$key}");
 			}
-			%options{$option.name} = $option;
+			%options{$key} = $option;
 		}
 		@positional-types.push: get-positionals($candidate);
 	}
@@ -444,7 +443,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				return $option;
 			}
 			elsif $key eq 'help' && $auto-help {
-				return Option.new(:name<help>, :store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
+				return Option.new(:store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
 			}
 			elsif $auto-abbreviate {
 				my @names = %!options.keys.grep(*.starts-with($key));
