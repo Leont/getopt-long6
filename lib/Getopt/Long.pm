@@ -522,8 +522,8 @@ our sub get-options(|args) is export(:DEFAULT, :functions) {
 	return get-options-from(@*ARGS, :overwrite, |args);
 }
 
-our sub call-with-getopt(&func, @args, %options?, :$overwrite) is export(:DEFAULT, :functions) {
-	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options, :write-args($overwrite ?? @args !! Any));
+our sub call-with-getopt(&func, @args, %options?) is export(:DEFAULT, :functions) {
+	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options, :write-args(@args));
 	return func(|$capture);
 }
 
@@ -531,7 +531,7 @@ my sub call-main(CallFrame $callframe, Any $retval) {
 	my $main = $callframe.my<&MAIN>;
 	return $retval unless $main;
 	my %options = %*SUB-MAIN-OPTS // {};
-	return call-with-getopt($main, @*ARGS, %options, :overwrite);
+	return call-with-getopt($main, @*ARGS, %options);
 }
 
 our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
