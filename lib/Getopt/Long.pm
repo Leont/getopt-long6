@@ -33,46 +33,6 @@ class ConverterInvalid does Exceptional {
 	}
 }
 
-my sub null-converter(Str:D $value --> Str) {
-	return $value;
-}
-
-my sub int-converter(Str:D $value --> Int) {
-	return $value.Int;
-}
-
-my sub rat-converter(Str:D $value --> Rat) {
-	return $value.Rat;
-}
-
-my sub num-converter(Str:D $value --> Num) {
-	return $value.Num;
-}
-
-my sub real-converter(Str:D $value --> Real) {
-	return $value.Real;
-}
-
-my sub complex-converter(Str:D $value --> Complex) {
-	return $value.Complex;
-}
-
-my sub io-converter(Str:D $value --> IO::Path) {
-	return $value.IO;
-}
-
-my sub datetime-converter(Str:D $value --> DateTime) {
-	return DateTime.new($value);
-}
-
-my sub date-converter(Str:D $value --> Date) {
-	return Date.new($value);
-}
-
-my sub maybe-converter(Str:D $value --> Any) {
-	return val($value);
-}
-
 my sub convert(Code:D $converter, Str:D $value) {
 	return $converter($value);
 	CATCH {
@@ -90,7 +50,7 @@ my sub convert(Code:D $converter, Str:D $value) {
 
 my role Store {
 	has Str:D $.key is required;
-	has Code:D $.converter = &null-converter;
+	has Code:D $.converter = *.self;
 	has Junction:D $.constraints = all();
 	method check-constraints(Any:D $value) {
 		die ValueInvalid.new(qq{Can't accept %s argument "$value" because it fails its constraints}) unless $value ~~ $!constraints;
@@ -182,17 +142,17 @@ my sub make-option(@names, Any:U $multi-class, %multi-args, Range $arity, %optio
 }
 
 my %converter-for-type{Any:U} = (
-	(Int)      => &int-converter,
-	(Rat)      => &rat-converter,
-	(Num)      => &num-converter,
-	(Real)     => &real-converter,
-	(Complex)  => &complex-converter,
-	(Str)      => &null-converter,
-	(IO::Path) => &io-converter,
-	(IO)       => &io-converter,
-	(DateTime) => &datetime-converter,
-	(Date)     => &date-converter,
-	(Any)      => &maybe-converter,
+	Pair.new(Int,      *.Int),
+	Pair.new(Rat,      *.Rat),
+	Pair.new(Num,      *.Num),
+	Pair.new(Real,     *.Real),
+	Pair.new(Complex,  *.Complex),
+	Pair.new(Str,      *.Str),
+	Pair.new(IO::Path, *.IO),
+	Pair.new(IO,       *.IO),
+	Pair.new(DateTime, *.DateTime),
+	Pair.new(Date,     *.Date),
+	Pair.new(Any,      &val),
 );
 
 my sub type-for-format(Str:D $format) {
@@ -269,12 +229,12 @@ my grammar Argument {
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ ScalarStore, { :converter(&int-converter) }, 0..1, { :default($<num>.Int) } ] }
+		{ make [ ScalarStore, { :converter(*.Int) }, 0..1, { :default($<num>.Int) } ] }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ CountStore, { :converter(&int-converter) }, 0..1, { :default(1) } ] }
+		{ make [ CountStore, { :converter(*.Int) }, 0..1, { :default(1) } ] }
 	}
 }
 
@@ -520,7 +480,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 	}
 	@$write-args = @list if $write-args;
-	my &fallback-converter = $compat-positional ?? &maybe-converter !! &null-converter;
+	my &fallback-converter = $compat-positional ?? &val !! *.self;
 	my @converters = |@!positionals, &fallback-converter, *;
 	my @positionals = (@ordinals Z @list Z @converters).map: -> $ [ $name, $value, $converter ] {
 		CATCH { when ValueInvalid { .rethrow-with($name) }}
