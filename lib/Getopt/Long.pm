@@ -59,29 +59,33 @@ my sub complex-converter(Str:D $value --> Complex) {
 
 my sub io-converter(Str:D $value --> IO::Path) {
 	return $value.IO;
-	CATCH { default {
-		die ValueInvalid.new(qq{Can not convert %s argument "$value" a path: $_.message()});
-	}}
 }
 
 my sub datetime-converter(Str:D $value --> DateTime) {
 	return DateTime.new($value);
-
-	CATCH { when X::Temporal {
-		die ValueInvalid.new(qq{Can not convert %s argument "$value" to datetime: $_.message()});
-	}}
 }
 
 my sub date-converter(Str:D $value --> Date) {
 	return Date.new($value);
-
-	CATCH { when X::Temporal {
-		die ValueInvalid.new(qq{Can not convert %s argument "$value" to date: $_.message()});
-	}}
 }
 
 my sub maybe-converter(Str:D $value --> Any) {
 	return val($value);
+}
+
+my sub convert(Code:D $converter, Str:D $value) {
+	return $converter($value);
+	CATCH {
+		when X::Str::Numeric {
+			die ValueInvalid.new(qq{Cannot convert %s argument "$value" to number: $_.reason()});
+		}
+		when X::Numeric::CannotConvert {
+			die ValueInvalid.new("Cannot convert %s argument $_.source() to {$_.target // $_.target.perl}: $_.reason()");
+		}
+		default {
+			die ValueInvalid.new("Can not convert %s argument \"$value\": {.message}");
+		}
+	}
 }
 
 my role Store {
@@ -92,7 +96,7 @@ my role Store {
 		die ValueInvalid.new(qq{Can't accept %s argument "$value" because it fails its constraints}) unless $value ~~ $!constraints;
 	}
 	method store-convert(Str:D $value, Hash:D $hash) {
-		self.store-direct($!converter($value), $hash);
+		self.store-direct(convert($!converter, $value), $hash);
 	}
 	method store-direct(Any:D $value, Hash:D $hash) { ... }
 }
@@ -123,7 +127,7 @@ my class HashStore does Store {
 	has Any:U $.type = $!converter.returns;
 	method store-convert(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
-		my $converted-value = $!converter($value);
+		my $converted-value = convert($!converter, $value);
 		self.check-constraints($converted-value);
 		$hash{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
 		$hash{$!key}{$key} = $converted-value;
@@ -408,31 +412,6 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
 	my @list;
 
-	sub wrap-exceptions(Str $description, Str $value, &action) {
-		return action($value);
-		CATCH {
-			when ValueInvalid {
-				.rethrow-with($description);
-			}
-			when X::Str::Numeric {
-				$_ does role :: does Exceptional {
-					method message() {
-						qq{Cannot convert $description argument "$value" to number: $.reason};
-					}
-				}
-				.rethrow;
-			}
-			when X::Numeric::CannotConvert {
-				$_ does role :: does Exceptional {
-					method message() {
-						"Cannot convert $description argument $.source to {$.target // $.target.perl}: $.reason"
-					}
-				}
-				.rethrow;
-			}
-		}
-	}
-
 	while @args {
 		my $head = @args.shift;
 
@@ -463,10 +442,9 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 
 		sub take-value(Option:D $option, Str:D $value, Str:D $name) {
-			wrap-exceptions($name, $value, -> $value {
-				$option.store($value, %hash);
-				$consumed++;
-			});
+			CATCH { when ValueInvalid { .rethrow-with($name) } }
+			$option.store($value, %hash);
+			$consumed++;
 		}
 		sub take-args(Option:D $option, Str:D $name) {
 			while @args && $consumed < $option.arity.min {
@@ -541,8 +519,11 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 	@$write-args = @list if $write-args;
 	my &fallback-converter = $compat-positional ?? &maybe-converter !! &null-converter;
 	my @converters = |@!positionals, &fallback-converter, *;
-	@list = (@ordinals Z @list Z @converters).map: { wrap-exceptions(|@^args) }
-	return \(|@list, |%hash);
+	my @positionals = (@ordinals Z @list Z @converters).map: -> $ [ $name, $value, $converter ] {
+		CATCH { when ValueInvalid { .rethrow-with($name) }}
+		convert($converter, $value);
+	};
+	return \(|@positionals, |%hash);
 }
 
 our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DEFAULT, :functions) {
