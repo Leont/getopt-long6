@@ -4,6 +4,7 @@ Revision history for Getopt-Long
     - Add auto-help option
     - Replaced custom argument types with coercion types
     - Eliminate :$overwrite from call-with-getopt
+    - Abolish Exceptional
 
 0.2.0  2020-11-15T00:00:06+01:00
     - Add auto-abbreviate option

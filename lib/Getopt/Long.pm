@@ -3,17 +3,14 @@ use fatal;
 
 unit class Getopt::Long:ver<0.2.0>;
 
-role Exceptional is Exception {
-}
-
-class Exception does Exceptional {
+class Exception is CORE::Exception {
 	has Str:D $.message is required;
 	method new(Str $message) {
 		return self.bless(:$message);
 	}
 }
 
-class ValueInvalid does Exceptional {
+class ValueInvalid is CORE::Exception {
 	has Str:D $.format is required;
 	method new(Str $format) {
 		return self.bless(:$format);
@@ -23,7 +20,7 @@ class ValueInvalid does Exceptional {
 	}
 }
 
-class ConverterInvalid does Exceptional {
+class ConverterInvalid is CORE::Exception {
 	has $.format;
 	method new(Str $format) {
 		return self.bless(:$format);
@@ -535,7 +532,7 @@ my sub call-main(CallFrame $callframe, Any $retval) {
 our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
 	my %options = %*SUB-MAIN-OPTS // {};
 	return Getopt::Long.new-from-sub($func).get-options(@args, |%options, :write-args(@args));
-	CATCH { when Exceptional { note .message; &*EXIT(2) } };
+	CATCH { when Exception { note .message; &*EXIT(2) } };
 }
 
 our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
@@ -1152,7 +1149,7 @@ usage message generator.
 =head1 Return values and Errors
 
 C<get-options> returns a capture to indicate success, or throws an
-C<Getopt::Long::Exceptional> otherwise.
+C<Getopt::Long::Exception> otherwise.
 
 =head1 Troubleshooting
 

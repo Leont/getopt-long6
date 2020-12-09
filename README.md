@@ -429,7 +429,7 @@ Configuring Getopt::Long
 Return values and Errors
 ========================
 
-`get-options` returns a capture to indicate success, or throws an `Getopt::Long::Exceptional` otherwise.
+`get-options` returns a capture to indicate success, or throws an `Getopt::Long::Exception` otherwise.
 
 Troubleshooting
 ===============
