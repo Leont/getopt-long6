@@ -115,7 +115,7 @@ my class CountStore does Store {
 }
 
 my class ArrayStore does Store {
-	has Any:U $.type = $!converter.returns;
+	has Any:U $.type is required;
 	method store-direct(Any:D $value, Hash:D $hash) {
 		self.check-constraints($value);
 		$hash{$!key} //= $!type === Any ?? Array !! Array[$!type].new;
@@ -124,7 +124,7 @@ my class ArrayStore does Store {
 }
 
 my class HashStore does Store {
-	has Any:U $.type = $!converter.returns;
+	has Any:U $.type is required;
 	method store-convert(Any:D $pair, Hash:D $hash) {
 		my ($key, $value) = $pair.split('=', 2);
 		my $converted-value = convert($!converter, $value);
@@ -181,18 +181,33 @@ my sub make-option(@names, Any:U $multi-class, %multi-args, Range $arity, %optio
 	return %options;
 }
 
-my sub converter-for-format(Str:D $format) {
-	state %converter-for-format =
-		i => &int-converter,
-		o => &int-converter, # compatability with p5
-		s => &null-converter,
-		f => &num-converter,
-		r => &rat-converter,
-		c => &complex-converter,
-		p => &io-converter,
-		d => &datetime-converter,
-		a => &date-converter;
-	return %converter-for-format{$format} // die ConverterInvalid.new("No such format $format for %s");
+my %converter-for-type{Any:U} = (
+	(Int)      => &int-converter,
+	(Rat)      => &rat-converter,
+	(Num)      => &num-converter,
+	(Real)     => &real-converter,
+	(Complex)  => &complex-converter,
+	(Str)      => &null-converter,
+	(IO::Path) => &io-converter,
+	(IO)       => &io-converter,
+	(DateTime) => &datetime-converter,
+	(Date)     => &date-converter,
+	(Any)      => &maybe-converter,
+);
+
+my sub type-for-format(Str:D $format) {
+	state %type-for-format =
+		i => Int,
+		o => Int, # compatability with p5
+		s => Str,
+		f => Num,
+		r => Rat,
+		c => Complex,
+		p => IO::Path,
+		d => DateTime,
+		a => Date;
+	die ConverterInvalid.new("No such format $format for %s") if not %type-for-format{$format}:exists;
+	return %type-for-format{$format};
 };
 
 my rule name { [\w+]+ % '-' | '?' }
@@ -227,12 +242,15 @@ my grammar Argument {
 
 	token type {
 		<alpha>
-		{ make converter-for-format(~$/) }
+		{
+			my $type = type-for-format(~$/);
+			make { :$type, :converter(%converter-for-type{$type}) }
+		}
 	}
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %store-for{~$<repeat>}, { :converter($<type>.ast) }, 1..1 ] }
+		{ make [ %store-for{~$<repeat>}, $<type>.ast, 1..1 ] }
 	}
 
 	rule range {
@@ -241,12 +259,12 @@ my grammar Argument {
 	}
 	token equals-more {
 		'=' <type> '{' <range>'}'
-		{ make [ ArrayStore, { :converter($<type>.ast) }, $<range>.ast ] }
+		{ make [ ArrayStore, $<type>.ast, $<range>.ast ] }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ ScalarStore, { :converter($<type>.ast) }, 0..1, { :default($<type>.ast.returns.new) } ] }
+		{ make [ ScalarStore, $<type>.ast, 0..1, { :default($<type>.ast<type>.new) } ] }
 	}
 
 	token colon-int {
@@ -275,7 +293,7 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 			.rethrow-with("pattern $pattern");
 		}}
 	}
-	my @positionals = $positionals.comb.map(&converter-for-format);
+	my @positionals = $positionals.comb.map(&type-for-format).map(&get-converter);
 	return self.new(:%options, :@positionals);
 }
 
@@ -284,29 +302,14 @@ our role Parseable {
 }
 
 sub get-converter(Any:U $type) {
-	state %converter-for-type{Any:U} = (
-		(Int)      => &int-converter,
-		(Rat)      => &rat-converter,
-		(Num)      => &num-converter,
-		(Real)     => &real-converter,
-		(Complex)  => &complex-converter,
-		(Str)      => &null-converter,
-		(IO::Path) => &io-converter,
-		(DateTime) => &datetime-converter,
-		(Date)     => &date-converter,
-		(Any)      => &maybe-converter,
-	);
-
 	if %converter-for-type{$type} -> &converter {
 		return &converter;
 	}
 	elsif $type.HOW ~~ Metamodel::EnumHOW {
 		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
-		sub enum-converter(Str $value) {
+		return sub enum-converter(Str $value) {
 			return $type.WHO{$value} // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
 		}
-		trait_mod:<returns>(&enum-converter, $type);
-		return &enum-converter;
 	}
 	elsif $type ~~ Parseable {
 		my $callback = sub (Str $value) { return $type.parse-argument($value) };
