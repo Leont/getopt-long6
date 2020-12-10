@@ -277,14 +277,14 @@ my sub get-converter(Any:U $type) {
 }
 
 my role Formatted {
-	has $.format is required;
+	has Option %.options is required;
 }
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Argument.parse($getopt, :rule('argument')) -> $match {
-		my @format = $match.ast;
-		return $param does Formatted(:format(@format));
+		my %options = make-option($param.named_names, |$match.ast);
+		return $param does Formatted(:%options);
 	}
 	else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$getopt'");
@@ -310,11 +310,11 @@ my multi get-positionals(&candidate where Parsed) {
 my multi get-named(&candidate) {
 	my @options;
 	for &candidate.signature.params.grep(*.named) -> $param {
-		my @names = $param.named_names;
 		if $param ~~ Formatted {
-			@options.append: make-option(@names, |$param.format.list);
+			@options.append: $param.options;
 		}
 		else {
+			my @names = $param.named_names;
 			if $param.sigil eq '$' {
 				my $type = $param.type;
 				my $constraints = $param.constraints;
