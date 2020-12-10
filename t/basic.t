@@ -71,7 +71,10 @@ is-deeply($capture19, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier work
 my $capture20 = get-options-from(['--foo', '1', '2', '3'], <foo=i{1,2}>);
 is-deeply($capture20, \('3', :foo(Array[Int].new(1, 2))), 'Repeat specifier works with range');
 
-my $getopt2 = Getopt::Long.new-from-sub(sub (:$foo is getopt("=s%")) is getopt {});
+my sub main1(:$foo is getopt("=s%")) is getopt {};
+ok(&main1.WHAT !=== Sub, 'sub main1 is not quite a Sub');
+ok(&main1.WHAT.^name.contains('Parsed'), 'sub main1 is parsed');
+my $getopt2 = Getopt::Long.new-from-sub(&main1);
 
 my $capture21 = $getopt2.get-options(<--foo bar=buz --foo qaz=quz>);
 my Str %expected = :bar('buz'), :qaz('quz');
