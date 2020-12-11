@@ -139,7 +139,7 @@ Now, using `--verbose` on the command line will enable `$verbose`, as expected. 
 
 An incremental option is specified with a plus `+` after the option name:
 
-    sub MAIN(Int :$verbose is getopt('+')) { ... }
+    sub MAIN(Int :$verbose is option('+')) { ... }
 
 or:
 
@@ -212,8 +212,8 @@ This can be accomplished by adding a repeat specifier to the option specificatio
 
 or
 
-    sub MAIN(Rat :@coordinates is getopt('f{2}'),
-      Int :@rgbcolor is getopt('i{3}'))
+    sub MAIN(Rat :@coordinates is option('f{2}'),
+      Int :@rgbcolor is option('i{3}'))
 
 
     get-options('coordinates=f{2}' => my @coordinates,

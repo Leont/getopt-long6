@@ -280,14 +280,14 @@ my role Formatted {
 	has Option %.options is required;
 }
 
-multi sub trait_mod:<is>(Parameter $param, Str:D :$getopt!) is export(:DEFAULT, :traits) {
+multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
-	with Argument.parse($getopt, :rule('argument')) -> $match {
+	with Argument.parse($option, :rule('argument')) -> $match {
 		my %options = make-option($param.named_names, |$match.ast);
 		return $param does Formatted(:%options);
 	}
 	else {
-		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$getopt'");
+		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
 	}
 }
 
@@ -711,7 +711,7 @@ C<< $verbose >> by setting its value to C<False>.
 An incremental option is specified with a plus C<+> after the
 option name:
 
-    sub MAIN(Int :$verbose is getopt('+')) { ... }
+    sub MAIN(Int :$verbose is option('+')) { ... }
 
 or:
 
@@ -813,8 +813,8 @@ For example, the above command line would be handled as follows:
 
 or
 
-    sub MAIN(Rat :@coordinates is getopt('f{2}'),
-      Int :@rgbcolor is getopt('i{3}'))
+    sub MAIN(Rat :@coordinates is option('f{2}'),
+      Int :@rgbcolor is option('i{3}'))
 
 
     get-options('coordinates=f{2}' => my @coordinates,
