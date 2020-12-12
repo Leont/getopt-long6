@@ -95,7 +95,9 @@ It supports the following types for named and positional arguments:
 
 It also supports any enum type, and any coercion type that uses any of the aforementioned types as its contraint type (e.g. `Foo(Str)`).
 
-class FourtyTwo does Parseable { has Int $.value; method parse-argument(Int(Str) $value) { die Getopt::Long::Invalid("Argument %s is not 42") if $value != 42; return FourtyTwo.new(:$value); } }
+An explicit converter can also be set using an `is option` trait, e.g.
+
+    sub MAIN(Foo :$foo is option(&foo-converter)) { ... }
 
 Simple options
 --------------

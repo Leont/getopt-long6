@@ -122,6 +122,7 @@ method !options {
 my %store-for = (
 	'%' => HashStore,
 	'@' => ArrayStore,
+	'$' => ScalarStore,
 	''  => ScalarStore,
 );
 
@@ -289,6 +290,13 @@ multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:
 	else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
 	}
+}
+
+multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
+	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
+	my $type = $element-type ~~ Any ?? $element-type !! Any;
+	my %options = make-option($param.named_names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
+	return $param does Formatted(:%options);
 }
 
 my role Parsed {
@@ -655,6 +663,10 @@ It supports the following types for named and positional arguments:
 
 It also supports any enum type, and any coercion type that uses any of
 the aforementioned types as its contraint type (e.g. C<Foo(Str)>).
+
+An explicit converter can also be set using an `is option` trait, e.g.
+
+ sub MAIN(Foo :$foo is option(&foo-converter)) { ... }
 
 =head2 Simple options
 

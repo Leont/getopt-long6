@@ -3,6 +3,7 @@ Revision history for Getopt-Long
 {{$NEXT}}
     - Add auto-help option
     - Replaced custom argument types with coercion types
+    - Add custom converter support
     - Eliminate :$overwrite from call-with-getopt
     - Abolish Exceptional
 

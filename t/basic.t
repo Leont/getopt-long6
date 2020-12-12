@@ -149,4 +149,8 @@ is-deeply($capture34, \(:v, :j<b>), 'Bundled options with arguments work');
 my $capture35 = get-options-from(<--foo baz --bar>, <foo bar>, :!permute);
 is-deeply($capture35, \(:foo, 'baz', '--bar'), ':!permute works');
 
+my $getopt9 = Getopt::Long.new-from-sub(sub (Str :$foo is option(*.flip)) {});
+my $capture36 = $getopt9.get-options(<--foo bar>);
+is-deeply($capture36, \(:foo<rab>), 'Custom converter works');
+
 done-testing;
