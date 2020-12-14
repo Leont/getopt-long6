@@ -39,6 +39,9 @@ my sub convert(Code:D $converter, Str:D $value) {
 		when X::Numeric::CannotConvert {
 			die ValueInvalid.new("Cannot convert %s argument $_.source() to {$_.target // $_.target.perl}: $_.reason()");
 		}
+		when X::Temporal {
+			die ValueInvalid.new(.message.subst(/'string ' ( \' .* \' ) <.before ';'> /, { "$0 given as %s argument" }));
+		}
 		default {
 			die ValueInvalid.new("Can not convert %s argument \"$value\": {.message}");
 		}
