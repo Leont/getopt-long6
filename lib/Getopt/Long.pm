@@ -153,6 +153,7 @@ my %converter-for-type{Any:U} = (
 	Pair.new(IO,       *.IO),
 	Pair.new(DateTime, *.DateTime),
 	Pair.new(Date,     *.Date),
+	Pair.new(Version,  *.Version),
 	Pair.new(Any,      &val),
 );
 
@@ -166,7 +167,8 @@ my sub type-for-format(Str:D $format) {
 		c => Complex,
 		p => IO::Path,
 		d => DateTime,
-		a => Date;
+		a => Date,
+		v => Version;
 	die ConverterInvalid.new("No such format $format for %s") if not %type-for-format{$format}:exists;
 	return %type-for-format{$format};
 };
@@ -663,6 +665,7 @@ It supports the following types for named and positional arguments:
 =item IO::Path
 =item DateTime
 =item Date
+=item Version
 
 It also supports any enum type, and any coercion type that uses any of
 the aforementioned types as its contraint type (e.g. C<Foo(Str)>).

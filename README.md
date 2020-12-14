@@ -93,6 +93,8 @@ It supports the following types for named and positional arguments:
 
   * Date
 
+  * Version
+
 It also supports any enum type, and any coercion type that uses any of the aforementioned types as its contraint type (e.g. `Foo(Str)`).
 
 An explicit converter can also be set using an `is option` trait, e.g.

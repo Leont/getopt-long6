@@ -1,6 +1,7 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+    - Add support for Version objects
 
 0.3.0  2020-12-12T17:47:08+01:00
     - Add auto-help option
