@@ -319,11 +319,15 @@ The argument specification can be
 
         * d
 
-          A date and time (`DateTime`). For example `2019-12-30T01:23:45-0700`.
+          An ISO-8601 formatted date and time (`DateTime`). For example `2019-12-30T01:23:45-0700`.
 
         * a
 
-          A Date (`Date`). For example `2019-12-30`.
+          A ISO-8601 formatted date (`Date`). For example `2019-12-30`.
+
+        * v
+
+          A Version (`Version`). For example `1.2.3`.
 
     The *desttype* can be `@` or `%` to specify that the option is list or a hash valued.
 

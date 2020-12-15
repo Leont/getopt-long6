@@ -989,14 +989,21 @@ Path (C<IO::Path>). For example C<foo/bar.txt>.
 =begin item2
 d
 
-A date and time (C<DateTime>). For example C<2019-12-30T01:23:45-0700>.
+An ISO-8601 formatted date and time (C<DateTime>). For example C<2019-12-30T01:23:45-0700>.
 
 =end item2
 
 =begin item2
 a
 
-A Date (C<Date>). For example C<2019-12-30>.
+A ISO-8601 formatted date (C<Date>). For example C<2019-12-30>.
+
+=end item2
+
+=begin item2
+v
+
+A Version (C<Version>). For example C<1.2.3>.
 
 =end item2
 
