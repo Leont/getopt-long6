@@ -450,7 +450,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 					take-value($option, $<values>.substr($index + 1), "-$value");
 				}
 
-				take-args($option, $value);
+				take-args($option, "-$value");
 				last if $consumed;
 			}
 		}
