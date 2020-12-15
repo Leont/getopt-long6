@@ -85,6 +85,8 @@ It supports the following types for named and positional arguments:
 
   * Real
 
+  * Numeric
+
   * Complex
 
   * IO::Path

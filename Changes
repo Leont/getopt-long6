@@ -1,6 +1,7 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+    - Add support for Numeric arguments
     - Make bundling and compat-single compatible with each other
 
 0.3.1  2020-12-15T02:24:46+01:00

@@ -147,6 +147,7 @@ my %converter-for-type{Any:U} = (
 	Pair.new(Rat,      *.Rat),
 	Pair.new(Num,      *.Num),
 	Pair.new(Real,     *.Real),
+	Pair.new(Numeric,  *.Numeric),
 	Pair.new(Complex,  *.Complex),
 	Pair.new(Str,      *.Str),
 	Pair.new(IO::Path, *.IO),
@@ -662,6 +663,7 @@ It supports the following types for named and positional arguments:
 =item Rat
 =item Num
 =item Real
+=item Numeric
 =item Complex
 =item IO::Path
 =item DateTime
