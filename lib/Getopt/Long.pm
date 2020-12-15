@@ -436,23 +436,24 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 		my rule name { [\w+]+ % '-' | '?' }
 
-		if $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option(~$<name>, "-$<name>");
-			die Exception.new("-$<name> doesn't take an argument") if $option.arity.max != 1;
-			take-value($option, ~$<value>, "-$<name>");
-		}
-		elsif $bundling && $head ~~ / ^ '-' $<values>=[\w .* ] $ / -> $/ {
+		if $bundling && $head ~~ / ^ '-' $<values>=[\w .* ] $ / -> $/ {
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
 				my $option = get-option($value, "-$value");
 				if $option.arity.max > 0 && $index + 1 < @values.elems {
-					take-value($option, $<values>.substr($index + 1), "-$value");
+					my $offset = $compat-singles && @values[$index + 1] eq '=' ?? 2 !! 1;
+					take-value($option, $<values>.substr($index + $offset), "-$value");
 				}
 
 				take-args($option, "-$value");
 				last if $consumed;
 			}
+		}
+		elsif $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
+			my $option = get-option(~$<name>, "-$<name>");
+			die Exception.new("-$<name> doesn't take an argument") if $option.arity.max != 1;
+			take-value($option, ~$<value>, "-$<name>");
 		}
 		elsif $head eq '--' {
 			@list.append: |@args;
