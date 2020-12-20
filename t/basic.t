@@ -135,13 +135,15 @@ class Foo {
 	}
 }
 
-my $getopt8 = Getopt::Long.new-from-sub(sub (Foo(Str) :$foo) { });
-my $capture33 = $getopt8.get-options(['--foo', '1']);
-is-deeply($capture33<foo>, Foo.new(:value(1)), 'Parse a custom parseable type');
+if $*RAKU.compiler.version after 2020.10 {
+	my $getopt8 = Getopt::Long.new-from-sub(sub (Foo(Str) :$foo) { });
+	my $capture33 = $getopt8.get-options(['--foo', '1']);
+	is-deeply($capture33<foo>, Foo.new(:value(1)), 'Parse a custom parseable type');
 
-throws-like({
-	call-with-getopt(sub (Signature(Str) :$bar) {dd $bar }, ['--bar', '1']);
-}, Getopt::Long::Exception, 'No conversion known for type Signature');
+	throws-like({
+		call-with-getopt(sub (Signature(Str) :$bar) { dd $bar }, ['--bar', '1']);
+	}, Getopt::Long::Exception, 'No conversion known for type Signature');
+}
 
 my $capture34 = get-options-from(['-vjb'], <v j=s b>);
 is-deeply($capture34, \(:v, :j<b>), 'Bundled options with arguments work');
