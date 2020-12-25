@@ -142,7 +142,7 @@ if $*RAKU.compiler.version after 2020.10 {
 
 	throws-like({
 		call-with-getopt(sub (Signature(Str) :$bar) { dd $bar }, ['--bar', '1']);
-	}, Getopt::Long::Exception, 'No conversion known for type Signature');
+	}, Getopt::Long::GenericException, 'No conversion known for type Signature');
 }
 
 my $capture34 = get-options-from(['-vjb'], <v j=s b>);
