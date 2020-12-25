@@ -3,9 +3,8 @@ language: minimal
 env:
   - RAKU_VERSION=latest
   - RAKU_VERSION=2020.08
-  - RAKU_VERSION=2019.11
-  - RAKU_VERSION=2019.03
-  
+  - RAKU_VERSION=2020.07
+
 services: docker
 
 install:
