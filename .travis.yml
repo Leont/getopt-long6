@@ -1,8 +1,14 @@
-branches:
-sudo: false
-language: perl6
-perl6:
-  - latest
+language: minimal
+
+env:
+  - RAKU_VERSION=latest
+  - RAKU_VERSION=2020.08
+  - RAKU_VERSION=2019.11
+  - RAKU_VERSION=2019.03
+  
+services: docker
+
 install:
-  - rakudobrew build-zef
-  - zef install --verbose .
+  - docker pull jjmerelo/raku-test:${RAKU_VERSION}
+
+script: docker run -t -v  $TRAVIS_BUILD_DIR:/test jjmerelo/raku-test:${RAKU_VERSION}
