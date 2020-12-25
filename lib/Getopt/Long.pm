@@ -3,14 +3,14 @@ use fatal;
 
 unit class Getopt::Long:ver<0.3.2>;
 
-class Exception is CORE::Exception {
+class Exception is Exception {
 	has Str:D $.message is required;
 	method new(Str $message) {
 		return self.bless(:$message);
 	}
 }
 
-class ValueInvalid is CORE::Exception {
+class ValueInvalid is Exception {
 	has Str:D $.format is required;
 	method new(Str $format) {
 		return self.bless(:$format);
@@ -20,7 +20,7 @@ class ValueInvalid is CORE::Exception {
 	}
 }
 
-class ConverterInvalid is CORE::Exception {
+class ConverterInvalid is Exception {
 	has $.format;
 	method new(Str $format) {
 		return self.bless(:$format);
