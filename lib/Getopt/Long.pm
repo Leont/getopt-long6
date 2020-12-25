@@ -16,7 +16,7 @@ class ValueInvalid is Exception {
 		return self.bless(:$format);
 	}
 	method rethrow-with(Str $name) {
-		die Exception.new($!format.sprintf($name));
+		die GenericException.new($!format.sprintf($name));
 	}
 }
 
@@ -26,7 +26,7 @@ class ConverterInvalid is Exception {
 		return self.bless(:$format);
 	}
 	method rethrow-with(Str $name) {
-		die Exception.new($!format.sprintf($name));
+		die GenericException.new($!format.sprintf($name));
 	}
 }
 
@@ -251,7 +251,7 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 			}
 		}
 		else {
-			die Exception.new("Couldn't parse argument specification '$pattern'");
+			die GenericException.new("Couldn't parse argument specification '$pattern'");
 		}
 		CATCH { when ConverterInvalid {
 			.rethrow-with("pattern $pattern");
@@ -294,7 +294,7 @@ multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:
 		return $param does Formatted(:%options);
 	}
 	else {
-		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
+		die GenericException.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
 	}
 }
 
@@ -363,7 +363,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	for $main.candidates -> $candidate {
 		for get-named($candidate).kv -> $key, $option {
 			if %options{$key}:exists and %options{$key} !eqv $option {
-				die Exception.new("Can't merge arguments for {$key}");
+				die GenericException.new("Can't merge arguments for {$key}");
 			}
 			%options{$key} = $option;
 		}
@@ -372,7 +372,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	my $elem-max = max(@positional-types».elems);
 	my @positionals = (0 ..^ $elem-max).map: -> $index {
 		my @types = @positional-types.grep(* > $index)»[$index];
-		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
+		die GenericException.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
 		CATCH { when ConverterInvalid {
 			.rethrow-with(@ordinals[$index]);
 		}}
@@ -402,14 +402,14 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 					return %!options{ @names[0] };
 				}
 				elsif @names > 1 {
-					die Exception.new("Ambiguous partial option $name, possible interpretations: @names[]");
+					die GenericException.new("Ambiguous partial option $name, possible interpretations: @names[]");
 				}
 				else {
-					die Exception.new("Unknown option $name");
+					die GenericException.new("Unknown option $name");
 				}
 			}
 			else {
-				die Exception.new("Unknown option $name");
+				die GenericException.new("Unknown option $name");
 			}
 		}
 
@@ -431,7 +431,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				$option.store-default(%hash);
 			}
 			elsif $consumed < $option.arity.min {
-				die Exception.new("The argument $name requires a value but none was specified");
+				die GenericException.new("The argument $name requires a value but none was specified");
 			}
 		}
 
@@ -453,7 +453,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 		elsif $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
 			my $option = get-option(~$<name>, "-$<name>");
-			die Exception.new("-$<name> doesn't take an argument") if $option.arity.max != 1;
+			die GenericException.new("-$<name> doesn't take an argument") if $option.arity.max != 1;
 			take-value($option, ~$<value>, "-$<name>");
 		}
 		elsif $head eq '--' {
@@ -465,14 +465,14 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 		elsif $head ~~ / ^ $<full-name>=[ '--' <name> ] '=' $<value>=[.*] / -> $/ {
 			my $option = get-option(~$<name>, ~$<full-name>);
-			die Exception.new("Option $<full-name> doesn't take arguments") if $option.arity.max == 0;
+			die GenericException.new("Option $<full-name> doesn't take arguments") if $option.arity.max == 0;
 			take-value($option, ~$<value>, ~$<full-name>);
 			take-args($option, ~$<full-name>);
 		}
 		elsif $compat-negation && $head ~~ / ^ $<full-name>=[ '-' ** 1..2 '/' <name> ] ['=' $<value>=[.*]]?  $ / {
 			if $<value> {
 				my $option = get-option(~$<name>, ~$<full-name>);
-				die Exception.new("Option $<full-name> doesn't take an argument") if $option.arity.max != 1;
+				die GenericException.new("Option $<full-name> doesn't take an argument") if $option.arity.max != 1;
 				take-value($option, ~$<value> but False, ~$<full-name>);
 			}
 			else {
@@ -521,7 +521,7 @@ our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DE
 			@options.push: $key;
 		}
 		default {
-			die Exception.new("Unknown element type: " ~ $element.perl);
+			die GenericException.new("Unknown element type: " ~ $element.perl);
 		}
 	}
 	my $getopt = Getopt::Long.new-from-patterns(@options);
