@@ -1,6 +1,8 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+
+0.3.3  2021-02-25T00:00:26+01:00
     - Added compat-space option
 
 0.3.2  2020-12-20T18:41:16+01:00

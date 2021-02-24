@@ -432,6 +432,10 @@ Configuring Getopt::Long
 
     Enabling this will turn all positional arguments into allomorphs, if possible.
 
+  * compat-space (default: `$compat-builtin`)
+
+    By default, an option with an optional argument will take that as a separate argument unless that argument starts with `--`; e.g. `--foo bar`. If this option is enabled, no such separate arguments are allowed, and the only way to express such an argument is in the same argument: `--foo=bar`.
+
   * auto-help (default: `$compat-builtin`)
 
     This adds an extra --help option, that can hook into Raku's built-in usage message generator.
