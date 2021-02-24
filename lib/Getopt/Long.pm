@@ -381,7 +381,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	return self.new(:%options, :@positionals);
 }
 
-method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
+method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$compat-space = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
 	my @list;
 
 	while @args {
@@ -423,7 +423,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				take-value($option, @args.shift, $name);
 			}
 
-			while @args && $consumed < $option.arity.max && !@args[0].starts-with('--') {
+			while !$compat-space && @args && $consumed < $option.arity.max && !@args[0].starts-with('--') {
 				take-value($option, @args.shift, $name);
 			}
 
@@ -1163,6 +1163,17 @@ compat-positional (default: C<$compat-builtin>)
 
 Enabling this will turn all positional arguments into allomorphs, if
 possible.
+
+=end item
+
+=begin item
+compat-space (default: C<$compat-builtin>)
+
+By default, an option with an optional argument will take that as a
+separate argument unless that argument starts with C<-->; e.g.
+C<--foo bar>. If this option is enabled, no such separate arguments are
+allowed, and the only way to express such an argument is in the same
+argument: C<--foo=bar>.
 
 =end item
 

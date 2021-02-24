@@ -155,4 +155,7 @@ my $getopt9 = Getopt::Long.new-from-sub(sub (Str :$foo is option(*.flip)) {});
 my $capture36 = $getopt9.get-options(<--foo bar>);
 is-deeply($capture36, \(:foo<rab>), 'Custom converter works');
 
+my $capture37 = get-options-from(['--foo', '2'], <foo:1>, :compat-space);
+is-deeply($capture37, \('2', :1foo), '');
+
 done-testing;
