@@ -176,7 +176,7 @@ my sub type-for-format(Str:D $format) {
 
 my rule name { [\w+]+ % '-' | '?' }
 
-my grammar Argument {
+my grammar Parser {
 	token TOP {
 		<names> <argument>
 		{
@@ -245,7 +245,7 @@ my grammar Argument {
 method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	my %options;
 	for @patterns -> $pattern {
-		if Argument.parse($pattern) -> $match {
+		if Parser.parse($pattern) -> $match {
 			for $match.ast.kv -> $key, $option {
 				%options{$key} = $option;
 			}
@@ -285,7 +285,7 @@ my role Formatted {
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
-	with Argument.parse($option, :rule('argument')) -> $match {
+	with Parser.parse($option, :rule('argument')) -> $match {
 		my %options = make-option($param.named_names, |$match.ast);
 		return $param does Formatted(:%options);
 	} else {
