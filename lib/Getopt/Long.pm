@@ -249,8 +249,7 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 			for $match.ast.kv -> $key, $option {
 				%options{$key} = $option;
 			}
-		}
-		else {
+		} else {
 			die Exception.new("Couldn't parse argument specification '$pattern'");
 		}
 		CATCH { when ConverterInvalid {
@@ -265,20 +264,17 @@ my sub get-converter(Any:U $type) {
 	state $coercion-how = try ::("Metamodel::CoercionHOW");
 	if %converter-for-type{$type} -> &converter {
 		return &converter;
-	}
-	elsif $type.HOW ~~ $coercion-how {
+	} elsif $type.HOW ~~ $coercion-how {
 		my &primary = get-converter($type.^constraint_type());
 		return sub coercion-converter(Str $input) {
 			return $type.^coerce(primary($input));
 		}
-	}
-	elsif $type.HOW ~~ Metamodel::EnumHOW {
+	} elsif $type.HOW ~~ Metamodel::EnumHOW {
 		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
 		return sub enum-converter(Str $value) {
 			return $type.WHO{$value} // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
 		}
-	}
-	else {
+	} else {
 		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
 	}
 }
@@ -292,8 +288,7 @@ multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:
 	with Argument.parse($option, :rule('argument')) -> $match {
 		my %options = make-option($param.named_names, |$match.ast);
 		return $param does Formatted(:%options);
-	}
-	else {
+	} else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
 	}
 }
@@ -326,21 +321,18 @@ my multi get-named(&candidate) {
 	for &candidate.signature.params.grep(*.named) -> $param {
 		if $param ~~ Formatted {
 			@options.append: $param.options;
-		}
-		else {
+		} else {
 			my @names = $param.named_names;
 			if $param.sigil eq '$' {
 				my $type = $param.type;
 				my $constraints = $param.constraints;
 				if $param.type === Bool {
 					@options.append: make-option(@names, ScalarStore, { :$constraints }, 0..0, {}, ?$param.default)
-				}
-				else {
+				} else {
 					my $converter = get-converter($param.type);
 					@options.append: make-option(@names, ScalarStore, { :$converter, :$constraints }, 1..1);
 				}
-			}
-			else {
+			} else {
 				my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
 				my $converter = get-converter($type);
 				@options.append: make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
@@ -392,23 +384,18 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		sub get-option(Str:D $key, Str:D $name) {
 			with %!options{$key} -> $option {
 				return $option;
-			}
-			elsif $key eq 'help' && $auto-help {
+			} elsif $key eq 'help' && $auto-help {
 				return Option.new(:store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
-			}
-			elsif $auto-abbreviate {
+			} elsif $auto-abbreviate {
 				my @names = %!options.keys.grep(*.starts-with($key));
 				if @names == 1 {
 					return %!options{ @names[0] };
-				}
-				elsif @names > 1 {
+				} elsif @names > 1 {
 					die Exception.new("Ambiguous partial option $name, possible interpretations: @names[]");
-				}
-				else {
+				} else {
 					die Exception.new("Unknown option $name");
 				}
-			}
-			else {
+			} else {
 				die Exception.new("Unknown option $name");
 			}
 		}
@@ -429,8 +416,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 			if $consumed == 0 && $option.arity.min == 0 {
 				$option.store-default(%hash);
-			}
-			elsif $consumed < $option.arity.min {
+			} elsif $consumed < $option.arity.min {
 				die Exception.new("The argument $name requires a value but none was specified");
 			}
 		}
@@ -474,16 +460,13 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				my $option = get-option(~$<name>, ~$<full-name>);
 				die Exception.new("Option $<full-name> doesn't take an argument") if $option.arity.max != 1;
 				take-value($option, ~$<value> but False, ~$<full-name>);
-			}
-			else {
+			} else {
 				take-args(get-option('no-' ~ $<name>, ~$<full-name>), ~$<full-name>);
 			}
-		}
-		else {
+		} else {
 			if $permute {
 				@list.push: $head;
-			}
-			else {
+			} else {
 				@list.append: $head, |@args;
 				last;
 			}
@@ -556,8 +539,7 @@ our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018
 			my $in := $*IN;
 			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
 			call-main(callframe(1), $retval);
-		}
-		else {
+		} else {
 			call-main(callframe(1), $retval);
 		}
 	}
