@@ -356,34 +356,33 @@ my multi get-positionals(&candidate where Parsed) {
 	return &candidate.getopt!positionals;
 }
 
-my multi get-named(&candidate) {
-	my @options;
-	for &candidate.signature.params.grep(*.named) -> $param {
-		if $param ~~ Formatted {
-			@options.append: $param.options;
+sub get-argument(Parameter $param) {
+	if $param.sigil eq '$' {
+		my $type = $param.type;
+		my $constraints = $param.constraints;
+		if $type === Bool {
+			return Argument::Boolean.new(:$constraints, :negatable(?$param.default));
 		} else {
-			my @names = $param.named_names;
-			if $param.sigil eq '$' {
-				my $type = $param.type;
-				my $constraints = $param.constraints;
-				if $param.type === Bool {
-					my $argument = Argument::Boolean.new(:$constraints, :negatable(?$param.default));
-					@options.append: $argument.add-options(@names)
-				} else {
-					my $argument = Argument::Scalar.new(:type($param.type), :$constraints);
-					@options.append: $argument.add-options(@names);
-				}
-			} else {
-				my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
-				my $argument = %argument-for{$param.sigil}.new(:$type);
-				@options.append: $argument.add-options(@names);
-			}
-			CATCH { when ConverterInvalid {
-				.rethrow-with("parameter {$param.name}");
-			}}
+			return Argument::Scalar.new(:$type, :$constraints);
 		}
+	} else {
+		my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
+		return %argument-for{$param.sigil}.new(:$type);
 	}
-	return @options.hash;
+	CATCH { when ConverterInvalid {
+		.rethrow-with("parameter {$param.name}");
+	}}
+}
+
+multi get-options-for(Parameter $param) {
+	return get-argument($param).add-options($param.named_names);
+}
+multi get-options-for(Parameter $param where Formatted) {
+	return $param.options;
+}
+
+my multi get-named(&candidate) {
+	return &candidate.signature.params.grep(*.named).flatmap(&get-options-for).flat.hash;
 }
 my multi get-named(&candidate where Parsed) {
 	return &candidate.getopt!options;
