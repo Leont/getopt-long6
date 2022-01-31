@@ -1,6 +1,7 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+    - Add Argument classes
 
 0.3.5  2022-09-26T18:25:31+02:00
     - Allow enum values to be converted to enums

@@ -122,26 +122,6 @@ method !options {
 	return %!options;
 }
 
-my %store-for = (
-	'%' => HashStore,
-	'@' => ArrayStore,
-	'$' => ScalarStore,
-	''  => ScalarStore,
-);
-
-my sub make-option(@names, Any:U $multi-class, %multi-args, Range $arity, %options-args?, Bool $negatable?) {
-	my $store = $multi-class.new(|%multi-args, :key(@names[0]));
-	my %options;
-	for @names -> $name {
-		%options{$name} = Option.new(:$store, :$arity, :default, |%options-args);
-		if $negatable {
-			%options{"no$name"} = Option.new(:$store, :$arity, |%options-args, :!default);
-			%options{"no-$name"} = Option.new(:$store, :$arity, |%options-args, :!default);
-		}
-	}
-	return %options;
-}
-
 my %converter-for-type{Any:U} = (
 	Pair.new(Int,      *.Int),
 	Pair.new(Rat,      *.Rat),
@@ -156,6 +136,70 @@ my %converter-for-type{Any:U} = (
 	Pair.new(Date,     *.Date),
 	Pair.new(Version,  *.Version),
 	Pair.new(Any,      &val),
+);
+
+role Argument {
+	has Junction:D $.constraints = all();
+	method add-options(Str @names) { ... }
+}
+
+role Argument::Valued does Argument {
+	has Any:U $.type = Str;
+	has Code:D $.converter = get-converter($!type);
+}
+
+class Argument::Boolean does Argument {
+	has Bool:D $.negatable = False;
+	method add-options(@names, Str:D :$key = @names[0]) {
+		my $store = ScalarStore.new(:$key, :$!constraints);
+		gather for @names -> $name {
+			take $name => Option.new(:$store, :arity(0..0), :default);
+			if $!negatable {
+				take "no$name" => Option.new(:$store, :arity(0..0), :!default);
+				take "no-$name" => Option.new(:$store, :arity(0..0), :!default);
+			}
+		}
+	}
+}
+
+class Argument::Scalar does Argument::Valued {
+	has Any $.default;
+	method add-options(@names, Str:D :$key = @names[0]) {
+		my $store = ScalarStore.new(:$key, :$!converter, :$!constraints);
+		my $arity = $!default.defined ?? 0..1 !! 1..1;
+		return @names.map: { $^name => Option.new(:$store, :$arity, :$!default) }
+	}
+}
+
+class Argument::Array does Argument::Valued {
+	has Range:D $.arity = 1..1;
+	method add-options(@names, Str:D :$key = @names[0]) {
+		my $store = ArrayStore.new(:$key, :$!type, :$!converter, :$!constraints);
+		return @names.map: { $^name => Option.new(:$store, :$!arity) }
+	}
+}
+
+class Argument::Hash does Argument::Valued {
+	method add-options(@names, Str:D :$key = @names[0]) {
+		my $store = HashStore.new(:$key, :$!type, :$!converter, :$!constraints);
+		return @names.map: { $^name => Option.new(:$store, :arity(1..1)) }
+	}
+}
+
+class Argument::Counter does Argument {
+	has Bool:D $.argumented = False;
+	method add-options(@names, Str:D :$key = @names[0]) {
+		my $store = CountStore.new(:$key, :converter(*.Int), :$!constraints);
+		my $arity = $!argumented ?? 0..1 !! 0..0;
+		return @names.map: { $^name => Option.new(:$store, :$arity, :1default) }
+	}
+}
+
+my %argument-for = (
+	'%' => Argument::Hash,
+	'@' => Argument::Array,
+	'$' => Argument::Scalar,
+	''  => Argument::Scalar,
 );
 
 my sub type-for-format(Str:D $format) {
@@ -179,9 +223,7 @@ my rule name { [\w+]+ % '-' | '?' }
 my grammar Parser {
 	token TOP {
 		<names> <argument>
-		{
-			make make-option($<names>.ast, |$<argument>.ast);
-		}
+		{ make $<argument>.ast.add-options($<names>.ast).hash; }
 	}
 
 	token names {
@@ -196,25 +238,22 @@ my grammar Parser {
 
 	token boolean {
 		$<negatable>=['!'?]
-		{ make [ ScalarStore, {}, 0..0, {}, ?$<negatable> ] }
+		{ make Argument::Boolean.new(:negatable(?$<negatable>)) }
 	}
 
 	token counter {
 		'+'
-		{ make [ CountStore, {}, 0..0, { :1default } ] }
+		{ make Argument::Counter.new }
 	}
 
 	token type {
 		<alpha>
-		{
-			my $type = type-for-format(~$/);
-			make { :$type, :converter(%converter-for-type{$type}) }
-		}
+		{ make type-for-format(~$/) }
 	}
 
 	token equals {
 		'=' <type> $<repeat>=[<[%@]>?]
-		{ make [ %store-for{~$<repeat>}, $<type>.ast, 1..1 ] }
+		{ make %argument-for{~$<repeat>}.new(:type($<type>.ast)) }
 	}
 
 	rule range {
@@ -223,22 +262,22 @@ my grammar Parser {
 	}
 	token equals-more {
 		'=' <type> '{' <range>'}'
-		{ make [ ArrayStore, $<type>.ast, $<range>.ast ] }
+		{ make Argument::Array.new(:type($<type>.ast), :arity($<range>.ast)) }
 	}
 
 	token colon-type {
 		':' <type>
-		{ make [ ScalarStore, $<type>.ast, 0..1, { :default($<type>.ast<type>.new) } ] }
+		{ make Argument::Scalar.new(:type($<type>.ast), :default($<type>.ast.new)) }
 	}
 
 	token colon-int {
 		':' $<num>=[<[0..9]>+]
-		{ make [ ScalarStore, { :converter(*.Int) }, 0..1, { :default($<num>.Int) } ] }
+		{ make Argument::Scalar.new(:type(Int), :default($<num>.Int)) }
 	}
 
 	token colon-count {
 		':+'
-		{ make [ CountStore, { :converter(*.Int) }, 0..1, { :default(1) } ] }
+		{ make Argument::Counter.new(:argumented) }
 	}
 }
 
@@ -286,7 +325,7 @@ my role Formatted {
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Parser.parse($option, :rule('argument')) -> $match {
-		my %options = make-option($param.named_names, |$match.ast);
+		my %options = $match.ast.add-options($param.named_names);
 		return $param does Formatted(:%options);
 	} else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
@@ -296,7 +335,8 @@ multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:
 multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
-	my %options = make-option($param.named_names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
+	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
+	my %options = $argument.add-options($param.named_names);
 	return $param does Formatted(:%options);
 }
 
@@ -327,15 +367,16 @@ my multi get-named(&candidate) {
 				my $type = $param.type;
 				my $constraints = $param.constraints;
 				if $param.type === Bool {
-					@options.append: make-option(@names, ScalarStore, { :$constraints }, 0..0, {}, ?$param.default)
+					my $argument = Argument::Boolean.new(:$constraints, :negatable(?$param.default));
+					@options.append: $argument.add-options(@names)
 				} else {
-					my $converter = get-converter($param.type);
-					@options.append: make-option(@names, ScalarStore, { :$converter, :$constraints }, 1..1);
+					my $argument = Argument::Scalar.new(:type($param.type), :$constraints);
+					@options.append: $argument.add-options(@names);
 				}
 			} else {
 				my $type = $param.type.of ~~ Any ?? $param.type.of !! Any;
-				my $converter = get-converter($type);
-				@options.append: make-option(@names, %store-for{$param.sigil}, { :$type, :$converter }, 1..1);
+				my $argument = %argument-for{$param.sigil}.new(:$type);
+				@options.append: $argument.add-options(@names);
 			}
 			CATCH { when ConverterInvalid {
 				.rethrow-with("parameter {$param.name}");
