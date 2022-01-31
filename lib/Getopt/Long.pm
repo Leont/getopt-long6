@@ -99,7 +99,7 @@ my class HashStore does Store {
 	}
 }
 
-my class Option {
+my class Receiver {
 	has Range:D $.arity is required;
 	has Store:D $.store is required;
 	has Any $.default;
@@ -112,14 +112,14 @@ my class Option {
 }
 
 has Code:D @!positionals is built;
-has Option:D %!options is built;
+has Receiver:D %!receivers is built;
 
 method !positionals {
 	return @!positionals.map(*.returns);
 }
 
-method !options {
-	return %!options;
+method !receivers {
+	return %!receivers;
 }
 
 my %converter-for-type{Any:U} = (
@@ -140,7 +140,7 @@ my %converter-for-type{Any:U} = (
 
 role Argument {
 	has Junction:D $.constraints = all();
-	method add-options(Str @names) { ... }
+	method make-receivers(Str @names) { ... }
 }
 
 role Argument::Valued does Argument {
@@ -150,13 +150,13 @@ role Argument::Valued does Argument {
 
 class Argument::Boolean does Argument {
 	has Bool:D $.negatable = False;
-	method add-options(@names, Str:D :$key = @names[0]) {
+	method make-receivers(@names, Str:D :$key = @names[0]) {
 		my $store = ScalarStore.new(:$key, :$!constraints);
 		gather for @names -> $name {
-			take $name => Option.new(:$store, :arity(0..0), :default);
+			take $name => Receiver.new(:$store, :arity(0..0), :default);
 			if $!negatable {
-				take "no$name" => Option.new(:$store, :arity(0..0), :!default);
-				take "no-$name" => Option.new(:$store, :arity(0..0), :!default);
+				take "no$name" => Receiver.new(:$store, :arity(0..0), :!default);
+				take "no-$name" => Receiver.new(:$store, :arity(0..0), :!default);
 			}
 		}
 	}
@@ -164,34 +164,34 @@ class Argument::Boolean does Argument {
 
 class Argument::Scalar does Argument::Valued {
 	has Any $.default;
-	method add-options(@names, Str:D :$key = @names[0]) {
+	method make-receivers(@names, Str:D :$key = @names[0]) {
 		my $store = ScalarStore.new(:$key, :$!converter, :$!constraints);
 		my $arity = $!default.defined ?? 0..1 !! 1..1;
-		return @names.map: { $^name => Option.new(:$store, :$arity, :$!default) }
+		return @names.map: { $^name => Receiver.new(:$store, :$arity, :$!default) }
 	}
 }
 
 class Argument::Array does Argument::Valued {
 	has Range:D $.arity = 1..1;
-	method add-options(@names, Str:D :$key = @names[0]) {
+	method make-receivers(@names, Str:D :$key = @names[0]) {
 		my $store = ArrayStore.new(:$key, :$!type, :$!converter, :$!constraints);
-		return @names.map: { $^name => Option.new(:$store, :$!arity) }
+		return @names.map: { $^name => Receiver.new(:$store, :$!arity) }
 	}
 }
 
 class Argument::Hash does Argument::Valued {
-	method add-options(@names, Str:D :$key = @names[0]) {
+	method make-receivers(@names, Str:D :$key = @names[0]) {
 		my $store = HashStore.new(:$key, :$!type, :$!converter, :$!constraints);
-		return @names.map: { $^name => Option.new(:$store, :arity(1..1)) }
+		return @names.map: { $^name => Receiver.new(:$store, :arity(1..1)) }
 	}
 }
 
 class Argument::Counter does Argument {
 	has Bool:D $.argumented = False;
-	method add-options(@names, Str:D :$key = @names[0]) {
+	method make-receivers(@names, Str:D :$key = @names[0]) {
 		my $store = CountStore.new(:$key, :converter(*.Int), :$!constraints);
 		my $arity = $!argumented ?? 0..1 !! 0..0;
-		return @names.map: { $^name => Option.new(:$store, :$arity, :1default) }
+		return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
 	}
 }
 
@@ -223,7 +223,7 @@ my rule name { [\w+]+ % '-' | '?' }
 my grammar Parser {
 	token TOP {
 		<names> <argument>
-		{ make $<argument>.ast.add-options($<names>.ast).hash; }
+		{ make $<argument>.ast.make-receivers($<names>.ast).hash; }
 	}
 
 	token names {
@@ -282,11 +282,11 @@ my grammar Parser {
 }
 
 method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
-	my %options;
+	my %receivers;
 	for @patterns -> $pattern {
 		if Parser.parse($pattern) -> $match {
-			for $match.ast.kv -> $key, $option {
-				%options{$key} = $option;
+			for $match.ast.kv -> $key, $receiver {
+				%receivers{$key} = $receiver;
 			}
 		} else {
 			die Exception.new("Couldn't parse argument specification '$pattern'");
@@ -296,7 +296,7 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 		}}
 	}
 	my @positionals = $positionals.comb.map(&type-for-format).map(&get-converter);
-	return self.new(:%options, :@positionals);
+	return self.new(:%receivers, :@positionals);
 }
 
 my sub get-converter(Any:U $type) {
@@ -319,14 +319,14 @@ my sub get-converter(Any:U $type) {
 }
 
 my role Formatted {
-	has Option %.options is required;
+	has Receiver %.receivers is required;
 }
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Parser.parse($option, :rule('argument')) -> $match {
-		my %options = $match.ast.add-options($param.named_names);
-		return $param does Formatted(:%options);
+		my %receivers = $match.ast.make-receivers($param.named_names);
+		return $param does Formatted(:%receivers);
 	} else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
 	}
@@ -336,8 +336,8 @@ multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is expor
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
-	my %options = $argument.add-options($param.named_names);
-	return $param does Formatted(:%options);
+	my %receivers = $argument.make-receivers($param.named_names);
+	return $param does Formatted(:%receivers);
 }
 
 my role Parsed {
@@ -374,30 +374,30 @@ sub get-argument(Parameter $param) {
 	}}
 }
 
-multi get-options-for(Parameter $param) {
-	return get-argument($param).add-options($param.named_names);
+multi get-receivers-for(Parameter $param) {
+	return get-argument($param).make-receivers($param.named_names);
 }
-multi get-options-for(Parameter $param where Formatted) {
-	return $param.options;
+multi get-receivers-for(Parameter $param where Formatted) {
+	return $param.receivers;
 }
 
 my multi get-named(&candidate) {
-	return &candidate.signature.params.grep(*.named).flatmap(&get-options-for).flat.hash;
+	return &candidate.signature.params.grep(*.named).flatmap(&get-receivers-for).flat.hash;
 }
 my multi get-named(&candidate where Parsed) {
-	return &candidate.getopt!options;
+	return &candidate.getopt!receivers;
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 
 method new-from-sub(Getopt::Long:U: Sub $main) {
-	my (%options, @positional-types);
+	my (%receivers, @positional-types);
 	for $main.candidates -> $candidate {
-		for get-named($candidate).kv -> $key, $option {
-			if %options{$key}:exists and %options{$key} !eqv $option {
+		for get-named($candidate).kv -> $key, $receiver {
+			if %receivers{$key}:exists and %receivers{$key} !eqv $receiver {
 				die Exception.new("Can't merge arguments for {$key}");
 			}
-			%options{$key} = $option;
+			%receivers{$key} = $receiver;
 		}
 		@positional-types.push: get-positionals($candidate);
 	}
@@ -410,7 +410,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 		}}
 		get-converter(@types[0]);
 	}
-	return self.new(:%options, :@positionals);
+	return self.new(:%receivers, :@positionals);
 }
 
 method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$compat-space = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
@@ -421,15 +421,15 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 		my $consumed = 0;
 
-		sub get-option(Str:D $key, Str:D $name) {
-			with %!options{$key} -> $option {
+		sub get-receiver(Str:D $key, Str:D $name) {
+			with %!receivers{$key} -> $option {
 				return $option;
 			} elsif $key eq 'help' && $auto-help {
-				return Option.new(:store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
+				return Receiver.new(:store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
 			} elsif $auto-abbreviate {
-				my @names = %!options.keys.grep(*.starts-with($key));
+				my @names = %!receivers.keys.grep(*.starts-with($key));
 				if @names == 1 {
-					return %!options{ @names[0] };
+					return %!receivers{ @names[0] };
 				} elsif @names > 1 {
 					die Exception.new("Ambiguous partial option $name, possible interpretations: @names[]");
 				} else {
@@ -440,23 +440,23 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			}
 		}
 
-		sub take-value(Option:D $option, Str:D $value, Str:D $name) {
+		sub take-value(Receiver:D $receiver, Str:D $value, Str:D $name) {
 			CATCH { when ValueInvalid { .rethrow-with($name) } }
-			$option.store($value, %hash);
+			$receiver.store($value, %hash);
 			$consumed++;
 		}
-		sub take-args(Option:D $option, Str:D $name) {
-			while @args && $consumed < $option.arity.min {
-				take-value($option, @args.shift, $name);
+		sub take-args(Receiver:D $receiver, Str:D $name) {
+			while @args && $consumed < $receiver.arity.min {
+				take-value($receiver, @args.shift, $name);
 			}
 
-			while !$compat-space && @args && $consumed < $option.arity.max && !@args[0].starts-with('--') {
-				take-value($option, @args.shift, $name);
+			while !$compat-space && @args && $consumed < $receiver.arity.max && !@args[0].starts-with('--') {
+				take-value($receiver, @args.shift, $name);
 			}
 
-			if $consumed == 0 && $option.arity.min == 0 {
-				$option.store-default(%hash);
-			} elsif $consumed < $option.arity.min {
+			if $consumed == 0 && $receiver.arity.min == 0 {
+				$receiver.store-default(%hash);
+			} elsif $consumed < $receiver.arity.min {
 				die Exception.new("The argument $name requires a value but none was specified");
 			}
 		}
@@ -467,41 +467,41 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			my @values = $<values>.Str.comb;
 			for @values.keys -> $index {
 				my $value = @values[$index];
-				my $option = get-option($value, "-$value");
-				if $option.arity.max > 0 && $index + 1 < @values.elems {
+				my $receiver = get-receiver($value, "-$value");
+				if $receiver.arity.max > 0 && $index + 1 < @values.elems {
 					my $offset = $compat-singles && @values[$index + 1] eq '=' ?? 2 !! 1;
-					take-value($option, $<values>.substr($index + $offset), "-$value");
+					take-value($receiver, $<values>.substr($index + $offset), "-$value");
 				}
 
-				take-args($option, "-$value");
+				take-args($receiver, "-$value");
 				last if $consumed;
 			}
 		}
 		elsif $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
-			my $option = get-option(~$<name>, "-$<name>");
-			die Exception.new("-$<name> doesn't take an argument") if $option.arity.max != 1;
-			take-value($option, ~$<value>, "-$<name>");
+			my $receiver = get-receiver(~$<name>, "-$<name>");
+			die Exception.new("-$<name> doesn't take an argument") if $receiver.arity.max != 1;
+			take-value($receiver, ~$<value>, "-$<name>");
 		}
 		elsif $head eq '--' {
 			@list.append: |@args;
 			last;
 		}
 		elsif $head ~~ / ^ '-' ** 1..2 <name> $ / -> $/ {
-			take-args(get-option(~$<name>, ~$/), ~$/);
+			take-args(get-receiver(~$<name>, ~$/), ~$/);
 		}
 		elsif $head ~~ / ^ $<full-name>=[ '--' <name> ] '=' $<value>=[.*] / -> $/ {
-			my $option = get-option(~$<name>, ~$<full-name>);
-			die Exception.new("Option $<full-name> doesn't take arguments") if $option.arity.max == 0;
-			take-value($option, ~$<value>, ~$<full-name>);
-			take-args($option, ~$<full-name>);
+			my $receiver = get-receiver(~$<name>, ~$<full-name>);
+			die Exception.new("Option $<full-name> doesn't take arguments") if $receiver.arity.max == 0;
+			take-value($receiver, ~$<value>, ~$<full-name>);
+			take-args($receiver, ~$<full-name>);
 		}
 		elsif $compat-negation && $head ~~ / ^ $<full-name>=[ '-' ** 1..2 '/' <name> ] ['=' $<value>=[.*]]?  $ / {
 			if $<value> {
-				my $option = get-option(~$<name>, ~$<full-name>);
-				die Exception.new("Option $<full-name> doesn't take an argument") if $option.arity.max != 1;
-				take-value($option, ~$<value> but False, ~$<full-name>);
+				my $receiver = get-receiver(~$<name>, ~$<full-name>);
+				die Exception.new("Option $<full-name> doesn't take an argument") if $receiver.arity.max != 1;
+				take-value($receiver, ~$<value> but False, ~$<full-name>);
 			} else {
-				take-args(get-option('no-' ~ $<name>, ~$<full-name>), ~$<full-name>);
+				take-args(get-receiver('no-' ~ $<name>, ~$<full-name>), ~$<full-name>);
 			}
 		} else {
 			if $permute {
