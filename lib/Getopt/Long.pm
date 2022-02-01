@@ -122,21 +122,40 @@ method !receivers {
 	return %!receivers;
 }
 
-my %converter-for-type{Any:U} = (
-	Pair.new(Int,      *.Int),
-	Pair.new(Rat,      *.Rat),
-	Pair.new(Num,      *.Num),
-	Pair.new(Real,     *.Real),
-	Pair.new(Numeric,  *.Numeric),
-	Pair.new(Complex,  *.Complex),
-	Pair.new(Str,      *.Str),
-	Pair.new(IO::Path, *.IO),
-	Pair.new(IO,       *.IO),
-	Pair.new(DateTime, *.DateTime),
-	Pair.new(Date,     *.Date),
-	Pair.new(Version,  *.Version),
-	Pair.new(Any,      &val),
-);
+sub get-converter(Any:U $type) {
+	state %converter-for-type{Any:U} = (
+		Pair.new(Int,      *.Int),
+		Pair.new(Rat,      *.Rat),
+		Pair.new(Num,      *.Num),
+		Pair.new(Real,     *.Real),
+		Pair.new(Numeric,  *.Numeric),
+		Pair.new(Complex,  *.Complex),
+		Pair.new(Str,      *.Str),
+		Pair.new(IO::Path, *.IO),
+		Pair.new(IO,       *.IO),
+		Pair.new(DateTime, *.DateTime),
+		Pair.new(Date,     *.Date),
+		Pair.new(Version,  *.Version),
+		Pair.new(Any,      &val),
+	);
+
+	state $coercion-how = try ::("Metamodel::CoercionHOW");
+	if %converter-for-type{$type} -> &converter {
+		return &converter;
+	} elsif $type.HOW ~~ $coercion-how {
+		my &primary = get-converter($type.^constraint_type());
+		return sub coercion-converter(Str $input) {
+			return $type.^coerce(primary($input));
+		}
+	} elsif $type.HOW ~~ Metamodel::EnumHOW {
+		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
+		return sub enum-converter(Str $value) {
+			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
+		}
+	} else {
+		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
+	}
+}
 
 role Argument {
 	has Junction:D $.constraints = all();
@@ -308,25 +327,6 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	});
 	my @positionals = $positionals.comb.map(&type-for-format);
 	return self.new-from-objects(@objects».ast, :@positionals);
-}
-
-my sub get-converter(Any:U $type) {
-	state $coercion-how = try ::("Metamodel::CoercionHOW");
-	if %converter-for-type{$type} -> &converter {
-		return &converter;
-	} elsif $type.HOW ~~ $coercion-how {
-		my &primary = get-converter($type.^constraint_type());
-		return sub coercion-converter(Str $input) {
-			return $type.^coerce(primary($input));
-		}
-	} elsif $type.HOW ~~ Metamodel::EnumHOW {
-		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
-		return sub enum-converter(Str $value) {
-			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
-		}
-	} else {
-		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
-	}
 }
 
 my role Formatted {
