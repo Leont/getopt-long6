@@ -213,9 +213,15 @@ my multi make-receivers(Argument::Counter $arg, @names, Str:D :$key = @names[0])
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
 }
 
+my rule name { [\w+]+ % '-' | '?' }
+
 class Option {
 	has Str @.names is required;
 	has Argument $.argument;
+	submethod TWEAK(:@names) {
+		die Exception.new('No name given for option') if @names < 1;
+		die Exception.new("Invalid name(s): @names[]") if any(@names) !~~ &name;
+	}
 	multi method new(:@names, :$argument) {
 		return self.bless(:@names, :$argument);
 	}
@@ -265,8 +271,6 @@ my sub type-for-format(Str:D $format) {
 	die ConverterInvalid.new("No such format $format for %s") if not %type-for-format{$format}:exists;
 	return %type-for-format{$format};
 };
-
-my rule name { [\w+]+ % '-' | '?' }
 
 my grammar Parser {
 	token TOP {
@@ -475,8 +479,6 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				die Exception.new("The argument $name requires a value but none was specified");
 			}
 		}
-
-		my rule name { [\w+]+ % '-' | '?' }
 
 		if $bundling && $head ~~ / ^ '-' $<values>=[\w .* ] $ / -> $/ {
 			my @values = $<values>.Str.comb;
