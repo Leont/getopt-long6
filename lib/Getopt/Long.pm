@@ -159,7 +159,6 @@ sub get-converter(Any:U $type) {
 
 role Argument {
 	has Junction:D $.constraints = all();
-	method make-receivers(Str @names) { ... }
 }
 
 role Argument::Valued does Argument {
@@ -169,49 +168,49 @@ role Argument::Valued does Argument {
 
 class Argument::Boolean does Argument {
 	has Bool:D $.negatable = False;
-	method make-receivers(@names, Str:D :$key = @names[0]) {
-		my $store = ScalarStore.new(:$key, :$!constraints);
-		gather for @names -> $name {
-			take $name => Receiver.new(:$store, :arity(0..0), :default);
-			if $!negatable {
-				take "no$name" => Receiver.new(:$store, :arity(0..0), :!default);
-				take "no-$name" => Receiver.new(:$store, :arity(0..0), :!default);
-			}
+}
+multi make-receivers(Argument::Boolean $arg, @names, Str:D :$key = @names[0]) {
+	my $store = ScalarStore.new(:$key, :constraints($arg.constraints));
+	gather for @names -> $name {
+		take $name => Receiver.new(:$store, :arity(0..0), :default);
+		if $arg.negatable {
+			take "no$name" => Receiver.new(:$store, :arity(0..0), :!default);
+			take "no-$name" => Receiver.new(:$store, :arity(0..0), :!default);
 		}
 	}
 }
 
 class Argument::Scalar does Argument::Valued {
 	has Any $.default;
-	method make-receivers(@names, Str:D :$key = @names[0]) {
-		my $store = ScalarStore.new(:$key, :$!converter, :$!constraints);
-		my $arity = $!default.defined ?? 0..1 !! 1..1;
-		return @names.map: { $^name => Receiver.new(:$store, :$arity, :$!default) }
-	}
+}
+my multi make-receivers(Argument::Scalar $arg, @names, Str:D :$key = @names[0]) {
+	my $store = ScalarStore.new(:$key, :converter($arg.converter), :constraints($arg.constraints));
+	my $arity = $arg.default.defined ?? 0..1 !! 1..1;
+	return @names.map: { $^name => Receiver.new(:$store, :$arity, :default($arg.default)) }
 }
 
 class Argument::Array does Argument::Valued {
 	has Range:D $.arity = 1..1;
-	method make-receivers(@names, Str:D :$key = @names[0]) {
-		my $store = ArrayStore.new(:$key, :$!type, :$!converter, :$!constraints);
-		return @names.map: { $^name => Receiver.new(:$store, :$!arity) }
-	}
+}
+my multi make-receivers(Argument::Array $arg, @names, Str:D :$key = @names[0]) {
+	my $store = ArrayStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints));
+	return @names.map: { $^name => Receiver.new(:$store, :arity($arg.arity)) }
 }
 
 class Argument::Hash does Argument::Valued {
-	method make-receivers(@names, Str:D :$key = @names[0]) {
-		my $store = HashStore.new(:$key, :$!type, :$!converter, :$!constraints);
-		return @names.map: { $^name => Receiver.new(:$store, :arity(1..1)) }
-	}
+}
+my multi make-receivers(Argument::Hash $arg, @names, Str:D :$key = @names[0]) {
+	my $store = HashStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints));
+	return @names.map: { $^name => Receiver.new(:$store, :arity(1..1)) }
 }
 
 class Argument::Counter does Argument {
 	has Bool:D $.argumented = False;
-	method make-receivers(@names, Str:D :$key = @names[0]) {
-		my $store = CountStore.new(:$key, :converter(*.Int), :$!constraints);
-		my $arity = $!argumented ?? 0..1 !! 0..0;
-		return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
-	}
+}
+my multi make-receivers(Argument::Counter $arg, @names, Str:D :$key = @names[0]) {
+	my $store = CountStore.new(:$key, :converter(*.Int), :constraints($arg.constraints));
+	my $arity = $arg.argumented ?? 0..1 !! 0..0;
+	return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
 }
 
 class Option {
@@ -224,7 +223,8 @@ class Option {
 		return self.bless(:names[$name], :$argument);
 	}
 	method to-receivers() {
-		return $.argument.make-receivers(@!names);
+		CATCH { when ConverterInvalid { .rethrow-with("--@!names[0]") }}
+		return make-receivers($!argument, @!names);
 	}
 }
 
@@ -345,7 +345,7 @@ my role Formatted {
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Parser.parse($option, :rule('argument')) -> $match {
-		my %receivers = $match.ast.make-receivers($param.named_names);
+		my %receivers = make-receivers($match.ast, $param.named_names);
 		return $param does Formatted(:%receivers);
 	} else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
@@ -356,7 +356,7 @@ multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is expor
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
-	my %receivers = $argument.make-receivers($param.named_names);
+	my %receivers = make-receivers($argument, $param.named_names);
 	return $param does Formatted(:%receivers);
 }
 
@@ -395,7 +395,7 @@ sub get-argument(Parameter $param) {
 }
 
 multi get-receivers-for(Parameter $param) {
-	return get-argument($param).make-receivers($param.named_names);
+	return make-receivers(get-argument($param), $param.named_names);
 }
 multi get-receivers-for(Parameter $param where Formatted) {
 	return $param.receivers;
