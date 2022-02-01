@@ -195,6 +195,26 @@ class Argument::Counter does Argument {
 	}
 }
 
+class Option {
+	has Str @.names is required;
+	has Argument $.argument;
+	multi method new(:@names, :$argument) {
+		return self.bless(:@names, :$argument);
+	}
+	multi method new(:$name, :$argument) {
+		return self.bless(:names[$name], :$argument);
+	}
+	method to-receivers() {
+		return $.argument.make-receivers(@!names);
+	}
+}
+
+method new-from-objects(Getopt::Long:U: @objects, :positionals(@raw-positionals)) {
+	my %receivers = @objects.flatmap(*.to-receivers);
+	my @positionals = @raw-positionals.map(&get-converter);
+	return self.new(:%receivers, :@positionals);
+}
+
 my %argument-for = (
 	'%' => Argument::Hash,
 	'@' => Argument::Array,
@@ -223,7 +243,7 @@ my rule name { [\w+]+ % '-' | '?' }
 my grammar Parser {
 	token TOP {
 		<names> <argument>
-		{ make $<argument>.ast.make-receivers($<names>.ast).hash; }
+		{ make Option.new(:names($<names>.ast), :argument($<argument>.ast)); }
 	}
 
 	token names {
@@ -282,21 +302,12 @@ my grammar Parser {
 }
 
 method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
-	my %receivers;
-	for @patterns -> $pattern {
-		if Parser.parse($pattern) -> $match {
-			for $match.ast.kv -> $key, $receiver {
-				%receivers{$key} = $receiver;
-			}
-		} else {
-			die Exception.new("Couldn't parse argument specification '$pattern'");
-		}
-		CATCH { when ConverterInvalid {
-			.rethrow-with("pattern $pattern");
-		}}
-	}
-	my @positionals = $positionals.comb.map(&type-for-format).map(&get-converter);
-	return self.new(:%receivers, :@positionals);
+	my @objects = @patterns.map(-> $pattern {
+		CATCH { when ConverterInvalid { .rethrow-with("pattern $pattern") }}
+		Parser.parse($pattern) // die Exception.new("Couldn't parse argument specification '$pattern'");
+	});
+	my @positionals = $positionals.comb.map(&type-for-format);
+	return self.new-from-objects(@objects».ast, :@positionals);
 }
 
 my sub get-converter(Any:U $type) {
