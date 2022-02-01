@@ -10,7 +10,7 @@ class Exception is CORE::Exception {
 	}
 }
 
-class ValueInvalid is CORE::Exception {
+role FormattableException is CORE::Exception {
 	has Str:D $.format is required;
 	method new(Str $format) {
 		return self.bless(:$format);
@@ -18,16 +18,15 @@ class ValueInvalid is CORE::Exception {
 	method rethrow-with(Str $name) {
 		die Exception.new($!format.sprintf($name));
 	}
+	method message() {
+		$!format.sprintf('some');
+	}
 }
 
-class ConverterInvalid is CORE::Exception {
-	has $.format;
-	method new(Str $format) {
-		return self.bless(:$format);
-	}
-	method rethrow-with(Str $name) {
-		die Exception.new($!format.sprintf($name));
-	}
+class ValueInvalid does FormattableException {
+}
+
+class ConverterInvalid does FormattableException {
 }
 
 my sub convert(Code:D $converter, Str:D $value) {
@@ -42,7 +41,7 @@ my sub convert(Code:D $converter, Str:D $value) {
 		when X::Temporal {
 			die ValueInvalid.new(.message.subst(/'string ' ( \' .* \' ) <.before ';'> /, { "$0 given as %s argument" }));
 		}
-		when ValueInvalid {
+		when FormattableException {
 			.rethrow;
 		}
 		default {
