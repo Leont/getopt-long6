@@ -42,6 +42,9 @@ my sub convert(Code:D $converter, Str:D $value) {
 		when X::Temporal {
 			die ValueInvalid.new(.message.subst(/'string ' ( \' .* \' ) <.before ';'> /, { "$0 given as %s argument" }));
 		}
+		when ValueInvalid {
+			.rethrow;
+		}
 		default {
 			die ValueInvalid.new("Can not convert %s argument \"$value\": {.message}");
 		}
