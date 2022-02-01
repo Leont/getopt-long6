@@ -228,9 +228,18 @@ class Option {
 	}
 }
 
+my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
+
+sub converters-for-positionals(@types) {
+	(@types Z @ordinals).map: -> ($type, $ordinal) {
+		CATCH { when ConverterInvalid { .rethrow-with($ordinal); }}
+		get-converter($type);
+	}
+}
+
 method new-from-objects(Getopt::Long:U: @objects, :positionals(@raw-positionals)) {
 	my %receivers = @objects.flatmap(*.to-receivers);
-	my @positionals = @raw-positionals.map(&get-converter);
+	my @positionals = converters-for-positionals(@raw-positionals);
 	return self.new(:%receivers, :@positionals);
 }
 
@@ -399,8 +408,6 @@ my multi get-named(&candidate where Parsed) {
 	return &candidate.getopt!receivers;
 }
 
-my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
-
 method new-from-sub(Getopt::Long:U: Sub $main) {
 	my (%receivers, @positional-types);
 	for $main.candidates -> $candidate {
@@ -413,14 +420,11 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 		@positional-types.push: get-positionals($candidate);
 	}
 	my $elem-max = max(@positional-types».elems);
-	my @positionals = (0 ..^ $elem-max).map: -> $index {
+	my @positionals = converters-for-positionals((^$elem-max).map(-> $index {
 		my @types = @positional-types.grep(* > $index)»[$index];
 		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
-		CATCH { when ConverterInvalid {
-			.rethrow-with(@ordinals[$index]);
-		}}
-		get-converter(@types[0]);
-	}
+		@types[0];
+	}));
 	return self.new(:%receivers, :@positionals);
 }
 
