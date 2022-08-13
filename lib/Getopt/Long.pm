@@ -111,10 +111,8 @@ my class Option {
 	}
 }
 
-has Code:D @!positionals;
-has Option:D %!options;
-
-submethod BUILD(:@!positionals, :%!options) { }
+has Code:D @!positionals is built;
+has Option:D %!options is built;
 
 method !positionals {
 	return @!positionals.map(*.returns);
