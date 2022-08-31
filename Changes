@@ -1,6 +1,8 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+
+0.3.4  2022-08-31T21:23:46+02:00
     - Correctly handle invalid value exceptions in enums and coercions
     - Remove compatability with Raku <2018.06
 
