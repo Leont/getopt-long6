@@ -346,11 +346,15 @@ my role Formatted {
 	has Receiver %.receivers is required;
 }
 
+multi sub trait_mod:<is>(Parameter $param, Argument :$option!) is export(:DEFAULT, :traits) {
+	my %receivers = make-receivers($option, $param.named_names);
+	return $param does Formatted(:%receivers);
+}
+
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
 	with Parser.parse($option, :rule('argument')) -> $match {
-		my %receivers = make-receivers($match.ast, $param.named_names);
-		return $param does Formatted(:%receivers);
+		return trait_mod:<is>($param, :option($match.ast));
 	} else {
 		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
 	}
@@ -360,8 +364,7 @@ multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is expor
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
-	my %receivers = make-receivers($argument, $param.named_names);
-	return $param does Formatted(:%receivers);
+	return trait_mod:<is>($param, :option($argument));
 }
 
 my role Parsed {
