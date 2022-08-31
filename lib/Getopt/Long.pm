@@ -533,17 +533,15 @@ our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
 	CATCH { when Exception { note .message; &*EXIT(2) } };
 }
 
-our &MAIN_HELPER is export(:DEFAULT, :MAIN) = $*PERL.compiler.version after 2018.06
-	?? anon sub MAIN_HELPER(Bool $in-is-args, $retval = 0) {
-		if $in-is-args {
-			my $in := $*IN;
-			my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
-			call-main(callframe(1), $retval);
-		} else {
-			call-main(callframe(1), $retval);
-		}
+our sub MAIN_HELPER(Bool $in-is-args, $retval = 0) is export(:DEFAULT, :MAIN) {
+	if $in-is-args {
+		my $in := $*IN;
+		my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
+		call-main(callframe(1), $retval);
+	} else {
+		call-main(callframe(1), $retval);
 	}
-	!! anon sub MAIN_HELPER($retval = 0) { call-main(callframe(1), $retval); }
+}
 
 =begin pod
 
