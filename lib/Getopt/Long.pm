@@ -272,7 +272,7 @@ my sub get-converter(Any:U $type) {
 	} elsif $type.HOW ~~ Metamodel::EnumHOW {
 		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
 		return sub enum-converter(Str $value) {
-			return $type.WHO{$value} // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
+			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
 		}
 	} else {
 		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
