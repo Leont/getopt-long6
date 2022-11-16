@@ -343,12 +343,11 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 }
 
 my role Formatted {
-	has Receiver %.receivers is required;
+	has Argument $.argument is required;
 }
 
-multi sub trait_mod:<is>(Parameter $param, Argument :$option!) is export(:DEFAULT, :traits) {
-	my %receivers = make-receivers($option, $param.named_names);
-	return $param does Formatted(:%receivers);
+multi sub trait_mod:<is>(Parameter $param, Argument :option($argument)!) is export(:DEFAULT, :traits) {
+	return $param does Formatted(:$argument);
 }
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
@@ -364,7 +363,7 @@ multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is expor
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
-	return trait_mod:<is>($param, :option($argument));
+	return $param does Formatted(:$argument);
 }
 
 my role Parsed {
@@ -400,12 +399,12 @@ sub get-argument(Parameter $param) {
 		.rethrow-with("parameter {$param.name}");
 	}}
 }
-
-multi get-receivers-for(Parameter $param) {
-	return make-receivers(get-argument($param), $param.named_names);
+multi get-argument(Parameter $param where Formatted) {
+	return $param.argument;
 }
-multi get-receivers-for(Parameter $param where Formatted) {
-	return $param.receivers;
+
+my sub get-receivers-for(Parameter $param) {
+	return make-receivers(get-argument($param), $param.named_names);
 }
 
 my multi get-named(&candidate) {
