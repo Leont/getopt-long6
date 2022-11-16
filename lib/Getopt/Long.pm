@@ -222,10 +222,10 @@ class Option {
 	multi method new(:$name, :$argument) {
 		return self.bless(:names[$name], :$argument);
 	}
-	method to-receivers() {
-		CATCH { when ConverterInvalid { .rethrow-with("--@!names[0]") }}
-		return make-receivers($!argument, @!names);
-	}
+}
+my sub to-receivers(Option $option) {
+	CATCH { when ConverterInvalid { .rethrow-with("--{$option.names[0]}") }}
+	return make-receivers($option.argument, $option.names);
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
@@ -238,7 +238,7 @@ sub converters-for-positionals(@types) {
 }
 
 method new-from-objects(Getopt::Long:U: @objects, :positionals(@raw-positionals)) {
-	my %receivers = @objects.flatmap(*.to-receivers);
+	my %receivers = @objects.flatmap(&to-receivers);
 	my @positionals = converters-for-positionals(@raw-positionals);
 	return self.new(:%receivers, :@positionals);
 }
