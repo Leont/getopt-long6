@@ -169,7 +169,7 @@ role Argument::Valued does Argument {
 class Argument::Boolean does Argument {
 	has Bool:D $.negatable = False;
 }
-multi make-receivers(Argument::Boolean $arg, @names, Str:D :$key = @names[0]) {
+multi make-receivers(Argument::Boolean $arg, Str:D $key, @names) {
 	my $store = ScalarStore.new(:$key, :constraints($arg.constraints));
 	gather for @names -> $name {
 		take $name => Receiver.new(:$store, :arity(0..0), :default);
@@ -183,7 +183,7 @@ multi make-receivers(Argument::Boolean $arg, @names, Str:D :$key = @names[0]) {
 class Argument::Scalar does Argument::Valued {
 	has Any $.default;
 }
-my multi make-receivers(Argument::Scalar $arg, @names, Str:D :$key = @names[0]) {
+multi make-receivers(Argument::Scalar $arg, Str:D $key, @names) {
 	my $store = ScalarStore.new(:$key, :converter($arg.converter), :constraints($arg.constraints));
 	my $arity = $arg.default.defined ?? 0..1 !! 1..1;
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :default($arg.default)) }
@@ -192,14 +192,14 @@ my multi make-receivers(Argument::Scalar $arg, @names, Str:D :$key = @names[0]) 
 class Argument::Array does Argument::Valued {
 	has Range:D $.arity = 1..1;
 }
-my multi make-receivers(Argument::Array $arg, @names, Str:D :$key = @names[0]) {
+multi make-receivers(Argument::Array $arg, Str:D $key, @names) {
 	my $store = ArrayStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints));
 	return @names.map: { $^name => Receiver.new(:$store, :arity($arg.arity)) }
 }
 
 class Argument::Hash does Argument::Valued {
 }
-my multi make-receivers(Argument::Hash $arg, @names, Str:D :$key = @names[0]) {
+multi make-receivers(Argument::Hash $arg, Str:D $key, @names) {
 	my $store = HashStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints));
 	return @names.map: { $^name => Receiver.new(:$store, :arity(1..1)) }
 }
@@ -207,7 +207,7 @@ my multi make-receivers(Argument::Hash $arg, @names, Str:D :$key = @names[0]) {
 class Argument::Counter does Argument {
 	has Bool:D $.argumented = False;
 }
-my multi make-receivers(Argument::Counter $arg, @names, Str:D :$key = @names[0]) {
+multi make-receivers(Argument::Counter $arg, Str:D $key, @names) {
 	my $store = CountStore.new(:$key, :converter(*.Int), :constraints($arg.constraints));
 	my $arity = $arg.argumented ?? 0..1 !! 0..0;
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
@@ -229,9 +229,9 @@ class Option {
 		return self.bless(:names[$name], :$argument);
 	}
 }
-my sub to-receivers(Option $option) {
+sub to-receivers(Option $option) {
 	CATCH { when ConverterInvalid { .rethrow-with("--{$option.names[0]}") }}
-	return make-receivers($option.argument, $option.names);
+	return make-receivers($option.argument, $option.names[0], $option.names);
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
@@ -404,7 +404,7 @@ multi get-argument(Parameter $param where Formatted) {
 }
 
 my sub get-receivers-for(Parameter $param) {
-	return make-receivers(get-argument($param), $param.named_names);
+	return make-receivers(get-argument($param), $param.named_names[0], $param.named_names);
 }
 
 my multi get-named(&candidate) {
