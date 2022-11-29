@@ -234,15 +234,13 @@ method !options {
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 
-sub converters-for-positionals(@types) {
-	(@types Z @ordinals).map: -> ($type, $ordinal) {
-		CATCH { when ConverterInvalid { .rethrow-with($ordinal); }}
-		get-converter($type);
-	}
+sub converter-for-positional($type, $ordinal) {
+	CATCH { when ConverterInvalid { .rethrow-with($ordinal); }}
+	return get-converter($type);
 }
 
 method new-from-objects(Getopt::Long:U: @options, :positionals(@raw-positionals)) {
-	my @positionals = converters-for-positionals(@raw-positionals);
+	my @positionals = @raw-positionals Z[&converter-for-positional] @ordinals;
 	return self.new(:@options, :@positionals);
 }
 
@@ -437,7 +435,7 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
 		@types[0];
 	}
-	my @positionals = converters-for-positionals(@types);
+	my @positionals = @types Z[&converter-for-positional] @ordinals;
 	return self.new(:@options, :@positionals);
 }
 
