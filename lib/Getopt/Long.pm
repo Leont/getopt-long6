@@ -483,7 +483,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			if $consumed == 0 && $receiver.arity.min == 0 {
 				$receiver.store-default(%hash);
 			} elsif $consumed < $receiver.arity.min {
-				die Exception.new("The argument $name requires a value but none was specified");
+				die Exception.new("The option $name requires a value but none was specified");
 			}
 		}
 
@@ -503,7 +503,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 		elsif $compat-singles && $head ~~ / ^ '-' <name> '=' $<value>=[.*] / -> $/ {
 			my $receiver = get-receiver(~$<name>, "-$<name>");
-			die Exception.new("-$<name> doesn't take an argument") if $receiver.arity.max != 1;
+			die Exception.new("Option -$<name> doesn't take an argument") if $receiver.arity.max != 1;
 			take-value($receiver, ~$<value>, "-$<name>");
 		}
 		elsif $head eq '--' {
