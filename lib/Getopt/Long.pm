@@ -217,21 +217,22 @@ my rule name { [\w+]+ % '-' | '?' }
 
 class Option {
 	has Str @.names is required;
+	has Str:D $.key is required;
 	has Argument $.argument;
 	submethod TWEAK(:@names) {
 		die Exception.new('No name given for option') if @names < 1;
 		die Exception.new("Invalid name(s): @names[]") if any(@names) !~~ &name;
 	}
-	multi method new(:@names, :$argument) {
-		return self.bless(:@names, :$argument);
+	multi method new(:@names!, :$argument!, Str :$key = @names[0]) {
+		return self.bless(:@names, :$key, :$argument);
 	}
-	multi method new(:$name, :$argument) {
-		return self.bless(:names[$name], :$argument);
+	multi method new(:$name!, :$argument!) {
+		return self.bless(:names[$name], :key($name), :$argument);
 	}
 }
 sub to-receivers(Option $option) {
 	CATCH { when ConverterInvalid { .rethrow-with("--{$option.names[0]}") }}
-	return make-receivers($option.argument, $option.names[0], $option.names);
+	return make-receivers($option.argument, $option.key, $option.names);
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
