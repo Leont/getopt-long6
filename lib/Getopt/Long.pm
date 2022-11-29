@@ -111,17 +111,6 @@ my class Receiver {
 	}
 }
 
-has Code:D @!positionals is built;
-has Receiver:D %!receivers is built;
-
-method !positionals {
-	return @!positionals.map(*.returns);
-}
-
-method !receivers {
-	return %!receivers;
-}
-
 sub get-converter(Any:U $type) {
 	state %converter-for-type{Any:U} = (
 		Pair.new(Int,      *.Int),
@@ -235,6 +224,17 @@ sub to-receivers(Option $option) {
 	return make-receivers($option.argument, $option.key, $option.names);
 }
 
+has Code:D @!positionals is built;
+has Option:D @!options is built;
+
+method !positionals {
+	return @!positionals.map(*.returns);
+}
+
+method !options {
+	return @!options;
+}
+
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 
 sub converters-for-positionals(@types) {
@@ -244,10 +244,9 @@ sub converters-for-positionals(@types) {
 	}
 }
 
-method new-from-objects(Getopt::Long:U: @objects, :positionals(@raw-positionals)) {
-	my %receivers = @objects.flatmap(&to-receivers);
+method new-from-objects(Getopt::Long:U: @options, :positionals(@raw-positionals)) {
 	my @positionals = converters-for-positionals(@raw-positionals);
-	return self.new(:%receivers, :@positionals);
+	return self.new(:@options, :@positionals);
 }
 
 my %argument-for = (
@@ -415,39 +414,33 @@ multi get-argument(Parameter $param where Formatted) {
 	return $param.argument;
 }
 
-my sub get-receivers-for(Parameter $param) {
-	return make-receivers(get-argument($param), $param.named_names[0], $param.named_names);
+sub make-option(Parameter $param) {
+	return Option.new(:names($param.named_names), :argument(get-argument($param)));
 }
 
-my multi get-named(&candidate) {
-	return &candidate.signature.params.grep(*.named).flatmap(&get-receivers-for).flat.hash;
+multi get-option-objects(&candidate) {
+	return &candidate.signature.params.grep(*.named).map(&make-option);
 }
-my multi get-named(&candidate where Parsed) {
-	return &candidate.getopt!receivers;
+multi get-option-objects(&candidate where Parsed) {
+	return &candidate.getopt!options;
 }
 
 method new-from-sub(Getopt::Long:U: Sub $main) {
-	my (%receivers, @positional-types);
-	for $main.candidates -> $candidate {
-		for get-named($candidate).kv -> $key, $receiver {
-			if %receivers{$key}:exists and %receivers{$key} !eqv $receiver {
-				die Exception.new("Can't merge arguments for {$key}");
-			}
-			%receivers{$key} = $receiver;
-		}
-		@positional-types.push: get-positionals($candidate);
-	}
+	my @options = $main.candidates.flatmap(&get-option-objects);
+	my @positional-types = $main.candidates.map(&get-positionals);
 	my $elem-max = max(@positional-types».elems);
 	my @positionals = converters-for-positionals((^$elem-max).map(-> $index {
 		my @types = @positional-types.grep(* > $index)»[$index];
 		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
 		@types[0];
 	}));
-	return self.new(:%receivers, :@positionals);
+	return self.new(:@options, :@positionals);
 }
 
 method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$compat-space = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
 	my @list;
+
+	my %receivers = @!options.flatmap(&to-receivers);
 
 	while @args {
 		my $head = @args.shift;
@@ -455,14 +448,14 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		my $consumed = 0;
 
 		sub get-receiver(Str:D $key, Str:D $name) {
-			with %!receivers{$key} -> $option {
+			with %receivers{$key} -> $option {
 				return $option;
 			} elsif $key eq 'help' && $auto-help {
 				return Receiver.new(:store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
 			} elsif $auto-abbreviate {
-				my @names = %!receivers.keys.grep(*.starts-with($key));
+				my @names = %receivers.keys.grep(*.starts-with($key));
 				if @names == 1 {
-					return %!receivers{ @names[0] };
+					return %receivers{ @names[0] };
 				} elsif @names > 1 {
 					die Exception.new("Ambiguous partial option $name, possible interpretations: @names[]");
 				} else {
