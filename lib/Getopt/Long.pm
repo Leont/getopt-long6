@@ -29,7 +29,7 @@ class ValueInvalid does FormattableException {
 class ConverterInvalid does FormattableException {
 }
 
-my sub convert(Code:D $converter, Str:D $value) {
+sub convert(Str:D $value, Code:D $converter) {
 	return $converter($value);
 	CATCH {
 		when X::Str::Numeric {
@@ -59,7 +59,7 @@ my role Store {
 		die ValueInvalid.new(qq{Can't accept %s argument "$value" because it fails its constraints}) unless $value ~~ $!constraints;
 	}
 	method store-convert(Str:D $value) {
-		self.store-direct(convert($!converter, $value));
+		self.store-direct(convert($value, $!converter));
 	}
 	method store-direct(Any:D $value) { ... }
 }
@@ -90,7 +90,7 @@ my class HashStore does Store {
 	has Any:U $.type is required;
 	method store-convert(Any:D $pair) {
 		my ($key, $value) = $pair.split('=', 2);
-		my $converted-value = convert($!converter, $value);
+		my $converted-value = convert($value, $!converter);
 		self.check-constraints($converted-value);
 		$!values{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
 		$!values{$!key}{$key} = $converted-value;
@@ -542,13 +542,15 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			}
 		}
 	}
-	@$write-args = @list if $write-args;
+
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
 	my @converters = |@!positionals, &fallback-converter, *;
-	my @positionals = (@ordinals Z @list Z @converters).map: -> $ [ $name, $value, $converter ] {
+	my @positionals = (@list Z @ordinals Z @converters).map: -> $ [ $value, $name, $converter ] {
 		CATCH { when ValueInvalid { .rethrow-with($name) }}
-		convert($converter, $value);
+		convert($value, $converter);
 	};
+
+	@$write-args = @list if $write-args;
 	return \(|@positionals, |%hash);
 }
 
