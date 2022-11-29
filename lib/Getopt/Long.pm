@@ -334,13 +334,19 @@ my grammar Parser {
 	}
 }
 
+our sub parse-option(Str $pattern) {
+	CATCH { when ConverterInvalid { .rethrow-with("pattern $pattern") }}
+	with Parser.parse($pattern) -> $match {
+		return $match.ast;
+	} else {
+		die Exception.new("Couldn't parse argument specification '$pattern'");
+	}
+}
+
 method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
-	my @objects = @patterns.map(-> $pattern {
-		CATCH { when ConverterInvalid { .rethrow-with("pattern $pattern") }}
-		Parser.parse($pattern) // die Exception.new("Couldn't parse argument specification '$pattern'");
-	});
+	my @objects = @patterns.map(&parse-option);
 	my @positionals = $positionals.comb.map(&type-for-format);
-	return self.new-from-objects(@objects».ast, :@positionals);
+	return self.new-from-objects(@objects, :@positionals);
 }
 
 my role Formatted {
@@ -351,13 +357,18 @@ multi sub trait_mod:<is>(Parameter $param, Argument :option($argument)!) is expo
 	return $param does Formatted(:$argument);
 }
 
-multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
-	CATCH { when ConverterInvalid { .rethrow("parameter {$param.name}") }}
-	with Parser.parse($option, :rule('argument')) -> $match {
-		return trait_mod:<is>($param, :option($match.ast));
+our sub parse-argument(Str $pattern, Str $name) {
+	CATCH { when ConverterInvalid { .rethrow-with("parameter {$name}") }}
+	with Parser.parse($pattern, :rule('argument')) -> $match {
+		return $match.ast;
 	} else {
-		die Exception.new("Couldn't parse parameter {$param.name}'s argument specification '$option'");
+		die Exception.new("Couldn't parse parameter $name\'s argument specification '$pattern'");
 	}
+}
+
+multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
+	my $argument = parse-argument($option, $param.named_names[0]);
+	return $param does Formatted(:$argument);
 }
 
 multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
