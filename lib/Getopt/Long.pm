@@ -435,11 +435,12 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 	my @options = $main.candidates.flatmap(&get-option-objects);
 	my @positional-types = $main.candidates.map(&get-positionals);
 	my $elem-max = max(@positional-types».elems);
-	my @positionals = converters-for-positionals((^$elem-max).map(-> $index {
+	my @types = (^$elem-max).map: -> $index {
 		my @types = @positional-types.grep(* > $index)»[$index];
 		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
 		@types[0];
-	}));
+	}
+	my @positionals = converters-for-positionals(@types);
 	return self.new(:@options, :@positionals);
 }
 
