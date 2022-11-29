@@ -54,47 +54,48 @@ my role Store {
 	has Str:D $.key is required;
 	has Code:D $.converter = *.self;
 	has Junction:D $.constraints = all();
+	has Hash $.values is required;
 	method check-constraints(Any:D $value) {
 		die ValueInvalid.new(qq{Can't accept %s argument "$value" because it fails its constraints}) unless $value ~~ $!constraints;
 	}
-	method store-convert(Str:D $value, Hash:D $hash) {
-		self.store-direct(convert($!converter, $value), $hash);
+	method store-convert(Str:D $value) {
+		self.store-direct(convert($!converter, $value));
 	}
-	method store-direct(Any:D $value, Hash:D $hash) { ... }
+	method store-direct(Any:D $value) { ... }
 }
 
 my class ScalarStore does Store {
-	method store-direct(Any:D $value, Hash:D $hash) {
+	method store-direct(Any:D $value) {
 		self.check-constraints($value);
-		$hash{$!key} = $value;
+		$!values{$!key} = $value;
 	}
 }
 
 my class CountStore does Store {
-	method store-direct(Int:D $value, Hash:D $hash) {
-		$hash{$!key} += $value;
+	method store-direct(Int:D $value) {
+		$!values{$!key} += $value;
 	}
 }
 
 my class ArrayStore does Store {
 	has Any:U $.type is required;
-	method store-direct(Any:D $value, Hash:D $hash) {
+	method store-direct(Any:D $value) {
 		self.check-constraints($value);
-		$hash{$!key} //= $!type === Any ?? Array !! Array[$!type].new;
-		$hash{$!key}.push($value);
+		$!values{$!key} //= $!type === Any ?? Array !! Array[$!type].new;
+		$!values{$!key}.push($value);
 	}
 }
 
 my class HashStore does Store {
 	has Any:U $.type is required;
-	method store-convert(Any:D $pair, Hash:D $hash) {
+	method store-convert(Any:D $pair) {
 		my ($key, $value) = $pair.split('=', 2);
 		my $converted-value = convert($!converter, $value);
 		self.check-constraints($converted-value);
-		$hash{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
-		$hash{$!key}{$key} = $converted-value;
+		$!values{$!key} //= $!type === Any ?? Hash !! Hash[$!type].new;
+		$!values{$!key}{$key} = $converted-value;
 	}
-	method store-direct(Any:D $pair, Hash:D $hash) {
+	method store-direct(Any:D $pair) {
 		!!!
 	}
 }
@@ -103,11 +104,11 @@ my class Receiver {
 	has Range:D $.arity is required;
 	has Store:D $.store is required;
 	has Any $.default;
-	method store(Any:D $raw, Hash:D $hash) {
-		$!store.store-convert($raw, $hash);
+	method store(Any:D $raw) {
+		$!store.store-convert($raw);
 	}
-	method store-default(Hash:D $hash) {
-		$!store.store-direct($!default, $hash);
+	method store-default() {
+		$!store.store-direct($!default);
 	}
 }
 
@@ -158,8 +159,8 @@ role Argument::Valued does Argument {
 class Argument::Boolean does Argument {
 	has Bool:D $.negatable = False;
 }
-multi make-receivers(Argument::Boolean $arg, Str:D $key, @names) {
-	my $store = ScalarStore.new(:$key, :constraints($arg.constraints));
+multi make-receivers(Argument::Boolean $arg, Str:D $key, @names, %values) {
+	my $store = ScalarStore.new(:$key, :constraints($arg.constraints), :%values);
 	gather for @names -> $name {
 		take $name => Receiver.new(:$store, :arity(0..0), :default);
 		if $arg.negatable {
@@ -172,8 +173,8 @@ multi make-receivers(Argument::Boolean $arg, Str:D $key, @names) {
 class Argument::Scalar does Argument::Valued {
 	has Any $.default;
 }
-multi make-receivers(Argument::Scalar $arg, Str:D $key, @names) {
-	my $store = ScalarStore.new(:$key, :converter($arg.converter), :constraints($arg.constraints));
+multi make-receivers(Argument::Scalar $arg, Str:D $key, @names, %values) {
+	my $store = ScalarStore.new(:$key, :converter($arg.converter), :constraints($arg.constraints), :%values);
 	my $arity = $arg.default.defined ?? 0..1 !! 1..1;
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :default($arg.default)) }
 }
@@ -181,23 +182,23 @@ multi make-receivers(Argument::Scalar $arg, Str:D $key, @names) {
 class Argument::Array does Argument::Valued {
 	has Range:D $.arity = 1..1;
 }
-multi make-receivers(Argument::Array $arg, Str:D $key, @names) {
-	my $store = ArrayStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints));
+multi make-receivers(Argument::Array $arg, Str:D $key, @names, %values) {
+	my $store = ArrayStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints), :%values);
 	return @names.map: { $^name => Receiver.new(:$store, :arity($arg.arity)) }
 }
 
 class Argument::Hash does Argument::Valued {
 }
-multi make-receivers(Argument::Hash $arg, Str:D $key, @names) {
-	my $store = HashStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints));
+multi make-receivers(Argument::Hash $arg, Str:D $key, @names, %values) {
+	my $store = HashStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints), :%values);
 	return @names.map: { $^name => Receiver.new(:$store, :arity(1..1)) }
 }
 
 class Argument::Counter does Argument {
 	has Bool:D $.argumented = False;
 }
-multi make-receivers(Argument::Counter $arg, Str:D $key, @names) {
-	my $store = CountStore.new(:$key, :converter(*.Int), :constraints($arg.constraints));
+multi make-receivers(Argument::Counter $arg, Str:D $key, @names, %values) {
+	my $store = CountStore.new(:$key, :converter(*.Int), :constraints($arg.constraints), :%values);
 	my $arity = $arg.argumented ?? 0..1 !! 0..0;
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
 }
@@ -218,10 +219,6 @@ class Option {
 	multi method new(:$name!, :$argument!) {
 		return self.bless(:names[$name], :key($name), :$argument);
 	}
-}
-sub to-receivers(Option $option) {
-	CATCH { when ConverterInvalid { .rethrow-with("--{$option.names[0]}") }}
-	return make-receivers($option.argument, $option.key, $option.names);
 }
 
 has Code:D @!positionals is built;
@@ -447,6 +444,10 @@ method new-from-sub(Getopt::Long:U: Sub $main) {
 method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$compat-space = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
 	my @list;
 
+	sub to-receivers(Option $option) {
+		CATCH { when ConverterInvalid { .rethrow-with("--{$option.names[0]}") }}
+		return make-receivers($option.argument, $option.key, $option.names, %hash);
+	}
 	my %receivers = @!options.flatmap(&to-receivers);
 
 	while @args {
@@ -475,7 +476,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 		sub take-value(Receiver:D $receiver, Str:D $value, Str:D $name) {
 			CATCH { when ValueInvalid { .rethrow-with($name) } }
-			$receiver.store($value, %hash);
+			$receiver.store($value);
 			$consumed++;
 		}
 		sub take-args(Receiver:D $receiver, Str:D $name) {
@@ -488,7 +489,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			}
 
 			if $consumed == 0 && $receiver.arity.min == 0 {
-				$receiver.store-default(%hash);
+				$receiver.store-default();
 			} elsif $consumed < $receiver.arity.min {
 				die Exception.new("The option $name requires a value but none was specified");
 			}
