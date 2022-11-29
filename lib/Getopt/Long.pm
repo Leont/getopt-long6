@@ -348,6 +348,20 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	return self.new-from-objects(@objects, :@positionals);
 }
 
+my role Parsed {
+	has Getopt::Long:D $.getopt is required;
+}
+
+multi sub trait_mod:<is>(Sub $sub, Bool :$getopt!) is export(:DEFAULT, :traits) {
+	return $sub does Parsed(Getopt::Long.new-from-sub($sub));
+}
+multi sub trait_mod:<is>(Sub $sub, :@getopt!) is export(:DEFAULT, :traits) {
+	return $sub does Parsed(Getopt::Long.new-from-patterns(@getopt));
+}
+multi sub trait_mod:<is>(Sub $sub, Getopt::Long:D :$getopt!) is export(:DEFAULT, :traits) {
+	return $sub does Parsed($getopt);
+}
+
 my role Formatted {
 	has Argument $.argument is required;
 }
@@ -375,14 +389,6 @@ multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is expor
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
 	return $param does Formatted(:$argument);
-}
-
-my role Parsed {
-	has Getopt::Long:D $.getopt is required;
-}
-
-multi sub trait_mod:<is>(Sub $sub, :$getopt!) is export(:DEFAULT, :traits) {
-	$sub does Parsed(Getopt::Long.new-from-sub($sub));
 }
 
 my multi get-positionals(&candidate) {
