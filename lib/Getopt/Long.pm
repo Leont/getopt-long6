@@ -456,14 +456,16 @@ multi get-positional-objects(&candidate where Parsed) {
 	return &candidate.getopt!positionals;
 }
 
+sub merge-positional-object(@positionals-for, $elems) {
+	my @positionals = @positionals-for.grep(* > $elems)»[$elems];
+	die Exception.new("Positional arguments are of different types") unless [eqv] @positionals;
+	return @positionals[0];
+}
+
 sub merge-positional-objects(Sub $main) {
 	my @positionals-for = $main.candidates.map(&get-positional-objects);
 	my $elem-max = max(@positionals-for».elems);
-	gather for ^$elem-max -> $index {
-		my @positionals = @positionals-for.grep(* > $index)»[$index];
-		die Exception.new("Positional arguments are of different types") unless [eqv] @positionals;
-		take @positionals[0];
-	}
+	return (^$elem-max).map: { merge-positional-object(@positionals-for, $^elem) };
 }
 
 method new-from-sub(Getopt::Long:U: Sub $main) {
