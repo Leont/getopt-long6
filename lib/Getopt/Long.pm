@@ -594,27 +594,10 @@ our sub call-with-getopt(&func, @args, %options?) is export(:DEFAULT, :functions
 	return func(|$capture);
 }
 
-my sub call-main(CallFrame $callframe, Any $retval) {
-	my $main = $callframe.my<&MAIN>;
-	return $retval unless $main;
-	my %options = %*SUB-MAIN-OPTS // {};
-	return call-with-getopt($main, @*ARGS, %options);
-}
-
 our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
 	my %options = %*SUB-MAIN-OPTS // {};
 	return Getopt::Long.new-from-sub($func).get-options(@args, |%options, :write-args(@args));
 	CATCH { when Exception { note .message; &*EXIT(2) } };
-}
-
-our sub MAIN_HELPER(Bool $in-is-args, $retval = 0) is export(:DEFAULT, :MAIN) {
-	if $in-is-args {
-		my $in := $*IN;
-		my $*ARGFILES := IO::ArgFiles.new($in, :nl-in($in.nl-in), :chomp($in.chomp), :encoding($in.encoding), :bin(!$in.encoding));
-		call-main(callframe(1), $retval);
-	} else {
-		call-main(callframe(1), $retval);
-	}
 }
 
 =begin pod
