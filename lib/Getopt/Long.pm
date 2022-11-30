@@ -222,26 +222,23 @@ class Option {
 	}
 }
 
-has Code:D @!positionals is built;
+class Ordered {
+	has Any:U $.type = Str;
+	has Code:D $.converter = get-converter($!type);
+}
+
+has Ordered:D @!positionals is built;
 has Option:D @!options is built;
 
 method !positionals {
-	return @!positionals.map(*.returns);
+	return @!positionals;
 }
 
 method !options {
 	return @!options;
 }
 
-my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
-
-sub converter-for-positional($type, $ordinal) {
-	CATCH { when ConverterInvalid { .rethrow-with($ordinal); }}
-	return get-converter($type);
-}
-
-method new-from-objects(Getopt::Long:U: @options, :positionals(@raw-positionals)) {
-	my @positionals = @raw-positionals Z[&converter-for-positional] @ordinals;
+method new-from-objects(Getopt::Long:U: @options, :@positionals) {
 	return self.new(:@options, :@positionals);
 }
 
@@ -338,9 +335,18 @@ our sub parse-option(Str $pattern) {
 	}
 }
 
+sub make-positional($type, $name) {
+	CATCH { when ConverterInvalid { .rethrow-with($name); }}
+	my $converter = get-converter($type);
+	return Ordered.new(:$type, :$converter);
+}
+
+my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
+
 method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	my @objects = @patterns.map(&parse-option);
-	my @positionals = $positionals.comb.map(&type-for-format);
+	my @positional-types = $positionals.comb.map(&type-for-format);
+	my @positionals = @positional-types Z[&make-positional] @ordinals;
 	return self.new-from-objects(@objects, :@positionals);
 }
 
@@ -419,26 +425,27 @@ multi get-option-objects(&candidate where Parsed) {
 	return &candidate.getopt!options;
 }
 
-multi get-positionals(&candidate) {
-	return &candidate.signature.params.grep(*.positional).map(*.type);
+multi get-positional-objects(&candidate) {
+	my @types = &candidate.signature.params.grep(*.positional).map(*.type);
+	return @types Z[&make-positional] @ordinals;
 }
-multi get-positionals(&candidate where Parsed) {
+multi get-positional-objects(&candidate where Parsed) {
 	return &candidate.getopt!positionals;
 }
 
-sub get-positional-types(Sub $main) {
-	my @positional-types = $main.candidates.map(&get-positionals);
-	my $elem-max = max(@positional-types».elems);
+sub merge-positional-objects(Sub $main) {
+	my @positionals-for = $main.candidates.map(&get-positional-objects);
+	my $elem-max = max(@positionals-for».elems);
 	gather for ^$elem-max -> $index {
-		my @types = @positional-types.grep(* > $index)»[$index];
-		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
-		take converter-for-positional(@types[0], @ordinals[$index]);
+		my @positionals = @positionals-for.grep(* > $index)»[$index];
+		die Exception.new("Positional arguments are of different types") unless [eqv] @positionals;
+		take @positionals[0];
 	}
 }
 
 method new-from-sub(Getopt::Long:U: Sub $main) {
 	my @options = $main.candidates.flatmap(&get-option-objects);
-	my @positionals = get-positional-types($main);
+	my @positionals = merge-positional-objects($main);
 	return self.new(:@options, :@positionals);
 }
 
@@ -547,7 +554,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 	}
 
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
-	my @converters = |@!positionals, &fallback-converter, *;
+	my @converters = |@!positionals».converter, &fallback-converter, *;
 	my @positionals = (@list Z @ordinals Z @converters).map: -> $ [ $value, $name, $converter ] {
 		CATCH { when ValueInvalid { .rethrow-with($name) }}
 		convert($value, $converter);
