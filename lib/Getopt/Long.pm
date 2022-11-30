@@ -135,7 +135,8 @@ sub get-converter(Any:U $type) {
 	} elsif $type.HOW ~~ $coercion-how {
 		my &primary = get-converter($type.^constraint_type());
 		return sub coercion-converter(Str $input) {
-			return $type.^coerce(primary($input));
+			my $primary = primary($input);
+			return $primary ~~ $type.^target_type ?? $primary !! $type.^coerce($primary);
 		}
 	} elsif $type.HOW ~~ Metamodel::EnumHOW {
 		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
