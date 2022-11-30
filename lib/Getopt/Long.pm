@@ -589,7 +589,7 @@ our sub get-options(|args) is export(:DEFAULT, :functions) {
 	return get-options-from(@*ARGS, :overwrite, |args);
 }
 
-our sub call-with-getopt(&func, @args, %options?) is export(:DEFAULT, :functions) {
+our sub call-with-getopt(&func, @args, %options = %*SUB-MAIN-OPTS // {}) is export(:DEFAULT, :functions) {
 	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options, :write-args(@args));
 	return func(|$capture);
 }
