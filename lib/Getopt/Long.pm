@@ -386,15 +386,7 @@ multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is expor
 	return $param does Formatted(:$argument);
 }
 
-my multi get-positionals(&candidate) {
-	return &candidate.signature.params.grep(*.positional).map(*.type);
-}
-
-my multi get-positionals(&candidate where Parsed) {
-	return &candidate.getopt!positionals;
-}
-
-sub get-argument(Parameter $param) {
+multi get-argument(Parameter $param) {
 	if $param.sigil eq '$' {
 		my $type = $param.type;
 		my $constraints = $param.constraints;
@@ -426,16 +418,26 @@ multi get-option-objects(&candidate where Parsed) {
 	return &candidate.getopt!options;
 }
 
-method new-from-sub(Getopt::Long:U: Sub $main) {
-	my @options = $main.candidates.flatmap(&get-option-objects);
+multi get-positionals(&candidate) {
+	return &candidate.signature.params.grep(*.positional).map(*.type);
+}
+multi get-positionals(&candidate where Parsed) {
+	return &candidate.getopt!positionals;
+}
+
+sub get-positional-types(Sub $main) {
 	my @positional-types = $main.candidates.map(&get-positionals);
 	my $elem-max = max(@positional-types».elems);
-	my @types = (^$elem-max).map: -> $index {
+	gather for ^$elem-max -> $index {
 		my @types = @positional-types.grep(* > $index)»[$index];
 		die Exception.new("Positional arguments are of different types {@types.perl}") unless [===] @types;
-		@types[0];
+		take converter-for-positional(@types[0], @ordinals[$index]);
 	}
-	my @positionals = @types Z[&converter-for-positional] @ordinals;
+}
+
+method new-from-sub(Getopt::Long:U: Sub $main) {
+	my @options = $main.candidates.flatmap(&get-option-objects);
+	my @positionals = get-positional-types($main);
 	return self.new(:@options, :@positionals);
 }
 
