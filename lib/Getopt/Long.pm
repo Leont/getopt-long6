@@ -134,13 +134,13 @@ sub get-converter(Any:U $type) {
 		return &converter;
 	} elsif $type.HOW ~~ $coercion-how {
 		my &primary = get-converter($type.^constraint_type());
-		return sub coercion-converter(Str $input) {
+		return %converter-for-type{$type} = sub coercion-converter(Str $input) {
 			my $primary = primary($input);
 			return $primary ~~ $type.^target_type ?? $primary !! $type.^coerce($primary);
 		}
 	} elsif $type.HOW ~~ Metamodel::EnumHOW {
 		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
-		return sub enum-converter(Str $value) {
+		return %converter-for-type{$type} = sub enum-converter(Str $value) {
 			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
 		}
 	} else {
@@ -199,7 +199,7 @@ class Argument::Counter does Argument {
 	has Bool:D $.argumented = False;
 }
 multi make-receivers(Argument::Counter $arg, Str:D $key, @names, %values) {
-	my $store = CountStore.new(:$key, :converter(*.Int), :constraints($arg.constraints), :%values);
+	my $store = CountStore.new(:$key, :converter(get-converter(Int)), :constraints($arg.constraints), :%values);
 	my $arity = $arg.argumented ?? 0..1 !! 0..0;
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
 }
