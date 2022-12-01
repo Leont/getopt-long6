@@ -381,16 +381,33 @@ our sub parse-argument(Str $pattern, Str $name) {
 	}
 }
 
-multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
+multi sub trait_mod:<is>(Parameter $param where $param.named, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	my $argument = parse-argument($option, $param.named_names[0]);
 	return $param does Formatted::Named(:$argument);
 }
 
-multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
+multi sub trait_mod:<is>(Parameter $param where $param.named, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
 	return $param does Formatted::Named(:$argument);
+}
+
+my role Formatted::Positional {
+	has Ordered $.argument is required;
+}
+
+multi sub trait_mod:<is>(Parameter $param where $param.positional, Ordered:D :$option!) is export(:DEFAULT, :traits) {
+	return $param does Formatted::Positional($option);
+}
+multi sub trait_mod:<is>(Parameter $param where $param.positional, Str:D :$option!) is export(:DEFAULT, :traits) {
+	CATCH { when ConverterInvalid { .rethrow-with("parameter $param.name()") }}
+	my $argument = Ordered.new(:type(type-for-format($option)));
+	return $param does Formatted::Positional($argument);
+}
+multi sub trait_mod:<is>(Parameter $param where $param.positional, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
+	my $argument = Ordered.new(:type($param.type), :$converter);
+	return $param does Formatted::Positional($argument);
 }
 
 multi get-argument(Parameter $param) {
@@ -425,9 +442,15 @@ multi get-option-objects(&candidate where Parsed) {
 	return &candidate.getopt!options;
 }
 
+multi get-positional-object(Parameter $parameter) {
+	return make-positional($parameter.type, $parameter.name);
+}
+multi get-positional-object(Parameter $param where Formatted::Positional) {
+	return $param.argument;
+}
+
 multi get-positional-objects(&candidate) {
-	my @types = &candidate.signature.params.grep(*.positional).map(*.type);
-	return @types Z[&make-positional] @ordinals;
+	return &candidate.signature.params.grep(*.positional).map(&get-positional-object);
 }
 multi get-positional-objects(&candidate where Parsed) {
 	return &candidate.getopt!positionals;
