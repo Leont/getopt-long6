@@ -241,8 +241,8 @@ method !options {
 	return @!options;
 }
 
-method new-from-objects(Getopt::Long:U: @options, :@positionals) {
-	return self.new(:@options, :@positionals);
+method new-from-objects(Getopt::Long:U: @options, @positionals) {
+	return self.bless(:@options, :@positionals);
 }
 
 my %argument-for = (
@@ -347,10 +347,10 @@ sub make-positional($type, $name) {
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
 
 method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
-	my @objects = @patterns.map(&parse-option);
+	my @options = @patterns.map(&parse-option);
 	my @positional-types = $positionals.comb.map(&type-for-format);
 	my @positionals = @positional-types Z[&make-positional] @ordinals;
-	return self.new-from-objects(@objects, :@positionals);
+	return self.bless(:@options, :@positionals);
 }
 
 my role Parsed {
@@ -474,7 +474,7 @@ sub merge-positional-objects(Sub $main) {
 method new-from-sub(Getopt::Long:U: Sub $main) {
 	my @options = $main.candidates.flatmap(&get-option-objects);
 	my @positionals = merge-positional-objects($main);
-	return self.new(:@options, :@positionals);
+	return self.bless(:@options, :@positionals);
 }
 
 method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$compat-space = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
