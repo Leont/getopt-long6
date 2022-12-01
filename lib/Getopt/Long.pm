@@ -1,7 +1,7 @@
 use v6;
 use fatal;
 
-unit class Getopt::Long:ver<0.3.5>;
+unit class Getopt::Long:ver<0.4.0>;
 
 class Exception is CORE::Exception {
 	has Str:D $.message is required;
