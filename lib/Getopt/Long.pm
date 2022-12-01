@@ -364,12 +364,12 @@ multi sub trait_mod:<is>(Sub $sub, Getopt::Long:D :$getopt!) is export(:DEFAULT,
 	return $sub does Parsed($getopt);
 }
 
-my role Formatted {
+my role Formatted::Named {
 	has Argument $.argument is required;
 }
 
 multi sub trait_mod:<is>(Parameter $param, Argument :option($argument)!) is export(:DEFAULT, :traits) {
-	return $param does Formatted(:$argument);
+	return $param does Formatted::Named(:$argument);
 }
 
 our sub parse-argument(Str $pattern, Str $name) {
@@ -383,14 +383,14 @@ our sub parse-argument(Str $pattern, Str $name) {
 
 multi sub trait_mod:<is>(Parameter $param, Str:D :getopt(:$option)!) is export(:DEFAULT, :traits) {
 	my $argument = parse-argument($option, $param.named_names[0]);
-	return $param does Formatted(:$argument);
+	return $param does Formatted::Named(:$argument);
 }
 
 multi sub trait_mod:<is>(Parameter $param, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
-	return $param does Formatted(:$argument);
+	return $param does Formatted::Named(:$argument);
 }
 
 multi get-argument(Parameter $param) {
@@ -410,7 +410,7 @@ multi get-argument(Parameter $param) {
 		.rethrow-with("parameter {$param.name}");
 	}}
 }
-multi get-argument(Parameter $param where Formatted) {
+multi get-argument(Parameter $param where Formatted::Named) {
 	return $param.argument;
 }
 
