@@ -225,6 +225,9 @@ class Option {
 class Ordered {
 	has Any:U $.type = Str;
 	has Code:D $.converter = get-converter($!type);
+	method type-name() {
+		$!type.^name
+	}
 }
 
 has Ordered:D @!positionals is built;
@@ -458,7 +461,7 @@ multi get-positional-objects(&candidate where Parsed) {
 
 sub merge-positional-object(@positionals-for, $elems) {
 	my @positionals = @positionals-for.grep(* > $elems)»[$elems];
-	die Exception.new("Positional arguments are of different types") unless [eqv] @positionals;
+	die Exception.new("@ordinals[$elems].tc() arguments are of different types: { @positionals».type-name.join(', ') }") unless [eqv] @positionals;
 	return @positionals[0];
 }
 
