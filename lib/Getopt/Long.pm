@@ -10,16 +10,14 @@ class Exception is CORE::Exception {
 	}
 }
 
-role FormattableException is CORE::Exception {
+role FormattableException is Exception {
 	has Str:D $.format is required;
 	method new(Str $format) {
-		return self.bless(:$format);
+		my $message = $format.sprintf('some');
+		return self.bless(:$format, :$message);
 	}
 	method rethrow-with(Str $name) {
 		die Exception.new($!format.sprintf($name));
-	}
-	method message() {
-		$!format.sprintf('some');
 	}
 }
 
