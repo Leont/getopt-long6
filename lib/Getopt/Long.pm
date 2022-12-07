@@ -137,9 +137,13 @@ sub get-converter(Any:U $type) {
 			return $primary ~~ $type.^target_type ?? $primary !! $type.^coerce($primary);
 		}
 	} elsif $type.HOW ~~ Metamodel::EnumHOW {
-		my $valid-values = $type.WHO.keys.sort({ $type.WHO{$^value} }).join(", ");
+		sub valid-values() {
+			my @keys = $type.WHO.keys.sort({ $type.WHO{$^value} });
+			my @pairs = @keys.map: { sprintf('%s(%s)', $^key, $type.WHO{$^key}.value) };
+			return @pairs.join(', ');
+		}
 		return %converter-for-type{$type} = sub enum-converter(Str $value) {
-			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: $valid-values});
+			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: &valid-values()});
 		}
 	} else {
 		die ConverterInvalid.new("No argument conversion known for %s argument (type {$type.^name})");
