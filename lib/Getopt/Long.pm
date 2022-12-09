@@ -76,7 +76,7 @@ my class CountStore does Store {
 }
 
 my class ArrayStore does Store {
-	has Any:U $.type is required;
+	has Any:U $.type = Str;
 	method store-direct(Any:D $value) {
 		self.check-constraints($value);
 		$!values{$!key} //= $!type === Any ?? Array !! Array[$!type].new;
@@ -85,7 +85,7 @@ my class ArrayStore does Store {
 }
 
 my class HashStore does Store {
-	has Any:U $.type is required;
+	has Any:U $.type = Str;
 	method store-convert(Any:D $pair) {
 		my ($key, $value) = $pair.split('=', 2);
 		my $converted-value = convert($value, $!converter);
