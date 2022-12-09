@@ -27,7 +27,7 @@ class ValueInvalid does FormattableException {
 class ConverterInvalid does FormattableException {
 }
 
-sub convert(Str:D $value, Code:D $converter) {
+sub convert(Any:D $value, Code:D $converter) {
 	return $converter($value);
 	CATCH {
 		when X::Str::Numeric {
@@ -132,7 +132,7 @@ sub get-converter(Any:U $type) {
 		return &converter;
 	} elsif $type.HOW ~~ $coercion-how {
 		my &primary = get-converter($type.^constraint_type());
-		return %converter-for-type{$type} = sub coercion-converter(Str $input) {
+		return %converter-for-type{$type} = sub coercion-converter(Any $input) {
 			my $primary = primary($input);
 			return $primary ~~ $type.^target_type ?? $primary !! $type.^coerce($primary);
 		}
@@ -142,7 +142,7 @@ sub get-converter(Any:U $type) {
 			my @pairs = @keys.map: { sprintf('%s(%s)', $^key, $type.WHO{$^key}.value) };
 			return @pairs.join(', ');
 		}
-		return %converter-for-type{$type} = sub enum-converter(Str $value) {
+		return %converter-for-type{$type} = sub enum-converter(Any $value) {
 			return $type.WHO{$value} // $type.^enum_from_value($value) // die ValueInvalid.new(qq{Can't convert %s argument "$value" to $type.^name(), valid values are: &valid-values()});
 		}
 	} else {
@@ -152,6 +152,9 @@ sub get-converter(Any:U $type) {
 
 role Argument {
 	has Junction:D $.constraints = all();
+}
+multi get-transformer(Argument $) {
+	return Nil;
 }
 
 role Argument::Valued does Argument {
@@ -182,7 +185,14 @@ multi make-receivers(Argument::Scalar $arg, Str:D $key, @names, %values) {
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :default($arg.default)) }
 }
 
-class Argument::Array does Argument::Valued {
+role Argument::Composite does Argument::Valued {
+	has Code $.transformer;
+}
+multi get-transformer(Argument::Composite $arg) {
+	return $arg.transformer;
+}
+
+class Argument::Array does Argument::Composite {
 	has Range:D $.arity = 1..1;
 }
 multi make-receivers(Argument::Array $arg, Str:D $key, @names, %values) {
@@ -190,7 +200,8 @@ multi make-receivers(Argument::Array $arg, Str:D $key, @names, %values) {
 	return @names.map: { $^name => Receiver.new(:$store, :arity($arg.arity)) }
 }
 
-class Argument::Hash does Argument::Valued {
+
+class Argument::Hash does Argument::Composite {
 }
 multi make-receivers(Argument::Hash $arg, Str:D $key, @names, %values) {
 	my $store = HashStore.new(:$key, :type($arg.type), :converter($arg.converter), :constraints($arg.constraints), :%values);
@@ -198,12 +209,17 @@ multi make-receivers(Argument::Hash $arg, Str:D $key, @names, %values) {
 }
 
 class Argument::Counter does Argument {
+	has Any:U $.type = Int;
+	has Code:D $.converter = get-converter($!type);
 	has Bool:D $.argumented = False;
 }
 multi make-receivers(Argument::Counter $arg, Str:D $key, @names, %values) {
-	my $store = CountStore.new(:$key, :converter(get-converter(Int)), :constraints($arg.constraints), :%values);
+	my $store = CountStore.new(:$key, :converter($arg.converter), :constraints($arg.constraints), :%values);
 	my $arity = $arg.argumented ?? 0..1 !! 0..0;
 	return @names.map: { $^name => Receiver.new(:$store, :$arity, :1default) }
+}
+multi get-transformer(Argument::Counter $arg) {
+	return $arg.converter;
 }
 
 my rule name { [\w+]+ % '-' | '?' }
@@ -581,6 +597,15 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 				last;
 			}
 		}
+	}
+
+	sub transformer(Option $option) {
+		my $transformer = get-transformer($option.argument);
+		return $transformer ?? ($option.key => $transformer) !! ();
+	}
+	for @!options.flatmap(&transformer) -> (:$key, :$value) {
+		CATCH { when ValueInvalid { .rethrow-with("--$key") } }
+		%hash{$key} = convert(%hash{$key}, $value) if %hash{$key}:exists;
 	}
 
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
