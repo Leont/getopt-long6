@@ -431,12 +431,18 @@ multi sub trait_mod:<is>(Parameter $param where $param.positional, Code:D :optio
 	return $param does Formatted::Positional($argument);
 }
 
+role Custom {
+	method get-argument-for(Parameter $param) { ... }
+}
+
 multi get-argument(Parameter $param) {
 	if $param.sigil eq '$' {
 		my $type = $param.type;
 		my $constraints = $param.constraints;
 		if $type === Bool {
 			return Argument::Boolean.new(:$constraints, :negatable(?$param.default));
+		} elsif $type ~~ Custom {
+			return $type.get-argument-for($param);
 		} else {
 			return Argument::Scalar.new(:$type, :$constraints);
 		}
