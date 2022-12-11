@@ -462,13 +462,6 @@ sub make-option(Parameter $param) {
 	return Option.new(:names($param.named_names), :argument(get-argument($param)));
 }
 
-multi get-option-objects(&candidate) {
-	return &candidate.signature.params.grep(*.named).map(&make-option);
-}
-multi get-option-objects(&candidate where Parsed) {
-	return &candidate.getopt!options;
-}
-
 multi get-positional-object(Parameter $parameter) {
 	return make-positional($parameter.type, $parameter.name);
 }
@@ -476,11 +469,27 @@ multi get-positional-object(Parameter $param where Formatted::Positional) {
 	return $param.argument;
 }
 
-multi get-positional-objects(&candidate) {
-	return &candidate.signature.params.grep(*.positional).map(&get-positional-object);
+multi get-from-sub(&candidate) {
+	my @params = &candidate.signature.params;
+	my @options = @params.grep(*.named).map(&make-option);
+	my @positionals = @params.grep(*.positional).map(&get-positional-object);
+	return Getopt::Long.bless(:@options, :@positionals);
 }
-multi get-positional-objects(&candidate where Parsed) {
-	return &candidate.getopt!positionals;
+multi get-from-sub(&candidate where Parsed) {
+	return &candidate.getopt;
+}
+
+sub merge-named-objects(@options-for) {
+	my %unique;
+	for @options-for -> @option-set {
+		for @option-set -> $option {
+			for $option.names -> $name {
+				die "Can't merge unequal options for --$name" if %unique{$name}:exists and %unique{$name} !eqv $option;
+				%unique{$name} = $option;
+			}
+		}
+	}
+	return %unique.values;
 }
 
 sub merge-positional-object(@positionals-for, $elems) {
@@ -489,16 +498,20 @@ sub merge-positional-object(@positionals-for, $elems) {
 	return @positionals[0];
 }
 
-sub merge-positional-objects(Sub $main) {
-	my @positionals-for = $main.candidates.map(&get-positional-objects);
-	my $elem-max = max(@positionals-for».elems);
+sub merge-positional-objects(@positionals-for) {
+	my $elem-max = @positionals-for».elems.max;
 	return (^$elem-max).map: { merge-positional-object(@positionals-for, $^elem) };
 }
 
+sub merge-parsers(Getopt::Long @parsers) {
+	my @options = merge-named-objects(@parsers»!options);
+	my @positionals = merge-positional-objects(@parsers»!positionals);
+	return Getopt::Long.bless(:@options, :@positionals);
+}
+
 method new-from-sub(Getopt::Long:U: Sub $main) {
-	my @options = $main.candidates.flatmap(&get-option-objects);
-	my @positionals = merge-positional-objects($main);
-	return self.bless(:@options, :@positionals);
+	my Getopt::Long @parsers = $main.candidates.map(&get-from-sub);
+	return @parsers > 1 ?? merge-parsers(@parsers) !! @parsers[0];
 }
 
 method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = False, :$compat-builtin = False, :named-anywhere(:$permute) = !$compat-builtin, :$bundling = !$compat-builtin, :$compat-singles = $compat-builtin, :$compat-negation = $compat-builtin, :$compat-positional = $compat-builtin, :$compat-space = $compat-builtin, :$auto-help = $compat-builtin, :$write-args) {
