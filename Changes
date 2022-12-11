@@ -3,6 +3,7 @@ Revision history for Getopt-Long
 {{$NEXT}}
     - Make FormattableException a Getopt::Long::Exception
     - Add Custom role for argument type customization
+    - Allow Options in get-options{,-from}
 
 0.4.0  2022-12-01T15:26:25+01:00
     - Add Argument classes

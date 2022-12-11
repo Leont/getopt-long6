@@ -259,7 +259,7 @@ method !options {
 	return @!options;
 }
 
-method new-from-objects(Getopt::Long:U: @options, @positionals) {
+method new-from-objects(Getopt::Long:U: @options, @positionals?) {
 	return self.bless(:@options, :@positionals);
 }
 
@@ -641,15 +641,15 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DEFAULT, :functions) {
 	my %hash := @elements && @elements[0] ~~ Hash ?? @elements.shift !! {};
 	my @options;
-	for @elements -> $element {
-		when $element ~~ Str {
-			@options.push: $element;
+	for @elements {
+		when Str {
+			@options.push: parse-option($_);
 		}
-		when $element ~~ Pair {
-			my $key = $element.key;
-			my ($name) = $element.key ~~ / ^ (\w+) /[0];
-			%hash{$name} := $element.value;
-			given $element.value {
+		when Pair {
+			my $key = .key;
+			my ($name) = .key ~~ / ^ (\w+) /[0];
+			%hash{$name} := .value;
+			given .value {
 				when Positional {
 					$key ~= '@' unless $key.ends-with('@'|'}');
 				}
@@ -657,13 +657,16 @@ our sub get-options-from(@args, *@elements, :$overwrite, *%config) is export(:DE
 					$key ~= '%' unless $key.ends-with('%');
 				}
 			}
-			@options.push: $key;
+			@options.push: parse-option($key);
+		}
+		when Option {
+			@options.push: $_;
 		}
 		default {
-			die Exception.new("Unknown element type: " ~ $element.perl);
+			die Exception.new("Unknown element type: " ~ .perl);
 		}
 	}
-	my $getopt = Getopt::Long.new-from-patterns(@options);
+	my $getopt = Getopt::Long.new-from-objects(@options);
 	return $getopt.get-options(@args, |%config, :%hash, :write-args($overwrite ?? @args !! Any));
 }
 
