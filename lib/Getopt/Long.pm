@@ -628,9 +628,9 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 	}
 
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
-	my @converters = |@!positionals».converter, &fallback-converter, *;
-	my @positionals = (@list Z @ordinals Z @converters).map: -> $ [ $value, $name, $converter ] {
-		CATCH { when ValueInvalid { .rethrow-with($name) }}
+	my @positionals = @list.kv.map: -> $index, $value {
+		CATCH { when ValueInvalid { .rethrow-with(@ordinals[$index]) }}
+		my $converter = @!positionals[$index] ?? @!positionals[$index].converter !! &fallback-converter;
 		convert($value, $converter);
 	};
 
