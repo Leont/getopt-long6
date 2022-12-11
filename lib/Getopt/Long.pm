@@ -672,13 +672,13 @@ our sub get-options(|args) is export(:DEFAULT, :functions) {
 }
 
 our sub call-with-getopt(&func, @args, %options = %*SUB-MAIN-OPTS // {}) is export(:DEFAULT, :functions) {
-	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options, :write-args(@args));
+	my $capture = Getopt::Long.new-from-sub(&func).get-options(@args, |%options);
 	return func(|$capture);
 }
 
 our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
 	my %options = %*SUB-MAIN-OPTS // {};
-	return Getopt::Long.new-from-sub($func).get-options(@args, |%options, :write-args(@args));
+	return Getopt::Long.new-from-sub($func).get-options(@args, |%options);
 	CATCH { when Exception { note .message; &*EXIT(2) } };
 }
 
