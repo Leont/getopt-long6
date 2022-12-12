@@ -241,6 +241,7 @@ class Option {
 }
 
 class Ordered {
+	has Str:D $.name = 'some';
 	has Any:U $.type = Str;
 	has Code:D $.converter = get-converter($!type);
 	method type-name() {
@@ -359,7 +360,7 @@ our sub parse-option(Str $pattern) {
 sub make-positional($type, $name) {
 	CATCH { when ConverterInvalid { .rethrow-with($name); }}
 	my $converter = get-converter($type);
-	return Ordered.new(:$type, :$converter);
+	return Ordered.new(:$name, :$type, :$converter);
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
@@ -423,11 +424,11 @@ multi sub trait_mod:<is>(Parameter $param where $param.positional, Ordered:D :$o
 }
 multi sub trait_mod:<is>(Parameter $param where $param.positional, Str:D :$option!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow-with("parameter $param.name()") }}
-	my $argument = Ordered.new(:type(type-for-format($option)));
+	my $argument = Ordered.new(:name($param.usage-name), :type(type-for-format($option)));
 	return $param does Formatted::Positional($argument);
 }
 multi sub trait_mod:<is>(Parameter $param where $param.positional, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
-	my $argument = Ordered.new(:type($param.type), :$converter);
+	my $argument = Ordered.new(:name($param.usage-name), :type($param.type), :$converter);
 	return $param does Formatted::Positional($argument);
 }
 
@@ -494,7 +495,7 @@ sub merge-named-objects(@options-for) {
 
 sub merge-positional-object(@positionals-for, $elems) {
 	my @positionals = @positionals-for.grep(* > $elems)»[$elems];
-	die Exception.new("@ordinals[$elems].tc() arguments are of different types: { @positionals».type-name.join(', ') }") unless [eqv] @positionals;
+	die Exception.new("@ordinals[$elems].tc() arguments are of different types: { @positionals».type-name.join(', ') }") unless [eqv] @positionals».converter;
 	return @positionals[0];
 }
 
@@ -629,9 +630,13 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
 	my @positionals = @list.kv.map: -> $index, $value {
-		CATCH { when ValueInvalid { .rethrow-with(@ordinals[$index]) }}
-		my $converter = @!positionals[$index] ?? @!positionals[$index].converter !! &fallback-converter;
-		convert($value, $converter);
+		with @!positionals[$index] -> $positional {
+			CATCH { when ValueInvalid { .rethrow-with($positional.name) }}
+			convert($value, $positional.converter);
+		} else {
+			CATCH { when ValueInvalid { .rethrow-with(@ordinals[$index]) }}
+			convert($value, &fallback-converter);
+		}
 	};
 
 	@$write-args = @list if $write-args;
