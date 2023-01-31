@@ -11,7 +11,7 @@
   "name": "Getopt::Long",
   "perl": "6.*",
   "provides": {
-    "Getopt::Long": "lib/Getopt/Long.pm"
+    "Getopt::Long": "lib/Getopt/Long.rakumod"
   },
   "resources": [
   ],
