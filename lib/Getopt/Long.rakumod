@@ -619,13 +619,12 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 		}
 	}
 
-	sub transformer(Option $option) {
-		my $transformer = get-transformer($option.argument);
-		return $transformer ?? ($option.key => $transformer) !! ();
-	}
-	for @!options.flatmap(&transformer) -> (:$key, :$value) {
-		CATCH { when ValueInvalid { .rethrow-with("--$key") } }
-		%hash{$key} = convert(%hash{$key}, $value) if %hash{$key}:exists;
+	for @!options -> $option {
+		with get-transformer($option.argument) -> $transformer {
+			my $key = $option.key;
+			CATCH { when ValueInvalid { .rethrow-with("--$key") } }
+			%hash{$key} = convert(%hash{$key}, $transformer) if %hash{$key}:exists;
+		}
 	}
 
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
