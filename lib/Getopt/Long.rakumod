@@ -372,20 +372,6 @@ method new-from-patterns(Getopt::Long:U: @patterns, Str:D :$positionals = "") {
 	return self.bless(:@options, :@positionals);
 }
 
-my role Parsed {
-	has Getopt::Long:D $.getopt is required;
-}
-
-multi sub trait_mod:<is>(Sub $sub, Bool :$getopt!) is export(:DEFAULT, :traits) {
-	return $sub does Parsed(Getopt::Long.new-from-sub($sub));
-}
-multi sub trait_mod:<is>(Sub $sub, :@getopt!) is export(:DEFAULT, :traits) {
-	return $sub does Parsed(Getopt::Long.new-from-patterns(@getopt));
-}
-multi sub trait_mod:<is>(Sub $sub, Getopt::Long:D :$getopt!) is export(:DEFAULT, :traits) {
-	return $sub does Parsed($getopt);
-}
-
 my role Formatted::Named {
 	has Argument $.argument is required;
 }
@@ -470,6 +456,10 @@ multi get-positional-object(Parameter $param where Formatted::Positional) {
 	return $param.argument;
 }
 
+my role Parsed {
+	has Getopt::Long:D $.getopt is required;
+}
+
 multi get-from-sub(&candidate) {
 	my @params = &candidate.signature.params;
 	my @options = @params.grep(*.named).map(&make-option);
@@ -478,6 +468,16 @@ multi get-from-sub(&candidate) {
 }
 multi get-from-sub(&candidate where Parsed) {
 	return &candidate.getopt;
+}
+
+multi sub trait_mod:<is>(Sub $sub, Bool :$getopt!) is export(:DEFAULT, :traits) {
+	return $sub does Parsed(get-from-sub($sub));
+}
+multi sub trait_mod:<is>(Sub $sub, :@getopt!) is export(:DEFAULT, :traits) {
+	return $sub does Parsed(Getopt::Long.new-from-patterns(@getopt));
+}
+multi sub trait_mod:<is>(Sub $sub, Getopt::Long:D :$getopt!) is export(:DEFAULT, :traits) {
+	return $sub does Parsed($getopt);
 }
 
 sub merge-named-objects(@options-for) {
