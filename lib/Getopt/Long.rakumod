@@ -233,15 +233,16 @@ class Option {
 	has Str @.names is required;
 	has Str:D $.key is required;
 	has Argument $.argument;
+	has Str $.why;
 	submethod TWEAK(:@names) {
 		die Exception.new('No name given for option') if @names < 1;
 		die Exception.new("Invalid name(s): @names[]") if any(@names) !~~ &name;
 	}
-	multi method new(:@names!, :$argument!, Str :$key = @names[0]) {
-		return self.bless(:@names, :$key, :$argument);
+	multi method new(:@names!, :$argument!, Str :$key = @names[0], Str :$why) {
+		return self.bless(:@names, :$key, :$argument, :$why);
 	}
-	multi method new(:$name!, :$argument!) {
-		return self.bless(:names[$name], :key($name), :$argument);
+	multi method new(:$name!, :$argument!, Str :$why) {
+		return self.bless(:names[$name], :key($name), :$argument, :$why);
 	}
 }
 
@@ -249,6 +250,7 @@ class Ordered {
 	has Str:D $.name = 'some';
 	has Any:U $.type = Str;
 	has Code:D $.converter = get-converter($!type);
+	has Str $.why;
 	method type-name() {
 		$!type.^name
 	}
@@ -354,10 +356,10 @@ our sub parse-option(Str $pattern) {
 	}
 }
 
-sub make-positional($type, $name) {
+sub make-positional(Any:U $type, Str $name, Str $why) {
 	CATCH { when ConverterInvalid { .rethrow-with($name); }}
 	my $converter = get-converter($type);
-	return Ordered.new(:$name, :$type, :$converter);
+	return Ordered.new(:$name, :$type, :$converter, :$why);
 }
 
 my Str @ordinals = <first second third fourth fifth sixth seventh eighth nineth tenth some some> ... *;
@@ -398,6 +400,13 @@ multi sub trait_mod:<is>(Parameter $param where $param.named, Code:D :option($co
 	return $param does Formatted::Named(:$argument);
 }
 
+multi get-reason(Pod::Block::Declarator:D $declarator) {
+	return $declarator.trailing // $declarator.leading;
+}
+multi get-reason(Any:U $declarator) {
+	return Str;
+}
+
 my role Formatted::Positional {
 	has Ordered $.argument is required;
 }
@@ -407,11 +416,11 @@ multi sub trait_mod:<is>(Parameter $param where $param.positional, Ordered:D :$o
 }
 multi sub trait_mod:<is>(Parameter $param where $param.positional, Str:D :$option!) is export(:DEFAULT, :traits) {
 	CATCH { when ConverterInvalid { .rethrow-with("parameter $param.name()") }}
-	my $argument = Ordered.new(:name($param.usage-name), :type(type-for-format($option)));
+	my $argument = Ordered.new(:name($param.usage-name), :type(type-for-format($option)), :why(get-reason($param.WHY)));
 	return $param does Formatted::Positional($argument);
 }
 multi sub trait_mod:<is>(Parameter $param where $param.positional, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
-	my $argument = Ordered.new(:name($param.usage-name), :type($param.type), :$converter);
+	my $argument = Ordered.new(:name($param.usage-name), :type($param.type), :$converter, :why(get-reason($param.WHY)));
 	return $param does Formatted::Positional($argument);
 }
 
@@ -443,11 +452,11 @@ multi get-argument(Parameter $param where Formatted::Named) {
 }
 
 sub make-option(Parameter $param) {
-	return Option.new(:names($param.named_names), :argument(get-argument($param)));
+	return Option.new(:names($param.named_names), :argument(get-argument($param)), :why(get-reason($param.WHY)));
 }
 
 multi get-positional-object(Parameter $parameter) {
-	return make-positional($parameter.type, $parameter.name);
+	return make-positional($parameter.type, $parameter.usage-name, get-reason($parameter.WHY));
 }
 multi get-positional-object(Parameter $param where Formatted::Positional) {
 	return $param.argument;
