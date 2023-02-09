@@ -258,6 +258,7 @@ class Ordered {
 
 has Option:D @.options is required;
 has Ordered:D @.positionals;
+has Str $.slurpy;
 
 method new-from-objects(Getopt::Long:U: @options, @positionals?) {
 	return self.bless(:@options, :@positionals);
@@ -470,7 +471,8 @@ multi get-from-sub(&candidate) {
 	my @params = &candidate.signature.params;
 	my @options = @params.grep(*.named).map(&make-option);
 	my @positionals = @params.grep(*.positional).map(&get-positional-object);
-	return Getopt::Long.bless(:@options, :@positionals);
+	my ($slurpy) = @params.grep({ $^param.slurpy and not $^param.named }).map(*.usage-name)[0] // Str;
+	return Getopt::Long.bless(:@options, :@positionals, :$slurpy);
 }
 multi get-from-sub(&candidate where Parsed) {
 	return &candidate.getopt;
