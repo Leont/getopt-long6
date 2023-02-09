@@ -48,6 +48,11 @@ sub convert(Any:D $value, Code:D $converter) {
 	}
 }
 
+sub convert-with(Any:D $value, Code:D $converter, Str:D $name) {
+	CATCH { when ValueInvalid { .rethrow-with($name) } }
+	return convert($value, $converter);
+}
+
 my role Store {
 	has Str:D $.key is required;
 	has Code:D $.converter = *.self;
@@ -614,19 +619,16 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 	for @!options -> $option {
 		with get-transformer($option.argument) -> $transformer {
 			my $key = $option.key;
-			CATCH { when ValueInvalid { .rethrow-with("--$key") } }
-			%hash{$key} = convert(%hash{$key}, $transformer) if %hash{$key}:exists;
+			%hash{$key} = convert-with(%hash{$key}, $transformer, "--$key") if %hash{$key}:exists;
 		}
 	}
 
 	my &fallback-converter = $compat-positional ?? &val !! *.self;
 	my @positionals = @list.kv.map: -> $index, $value {
 		with @!positionals[$index] -> $positional {
-			CATCH { when ValueInvalid { .rethrow-with($positional.name) }}
-			convert($value, $positional.converter);
+			convert-with($value, $positional.converter, $positional.name);
 		} else {
-			CATCH { when ValueInvalid { .rethrow-with(@ordinals[$index]) }}
-			convert($value, &fallback-converter);
+			convert-with($value, &fallback-converter, @ordinals[$index]);
 		}
 	};
 
