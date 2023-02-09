@@ -249,16 +249,8 @@ class Ordered {
 	}
 }
 
-has Ordered:D @!positionals is built;
-has Option:D @!options is built;
-
-method !positionals {
-	return @!positionals;
-}
-
-method !options {
-	return @!options;
-}
+has Option:D @.options is required;
+has Ordered:D @.positionals;
 
 method new-from-objects(Getopt::Long:U: @options, @positionals?) {
 	return self.bless(:@options, :@positionals);
@@ -505,8 +497,8 @@ sub merge-positional-objects(@positionals-for) {
 }
 
 sub merge-parsers(Getopt::Long @parsers) {
-	my @options = merge-named-objects(@parsers»!options);
-	my @positionals = merge-positional-objects(@parsers»!positionals);
+	my @options = merge-named-objects(@parsers».options);
+	my @positionals = merge-positional-objects(@parsers».positionals);
 	return Getopt::Long.bless(:@options, :@positionals);
 }
 
