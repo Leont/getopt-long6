@@ -525,7 +525,7 @@ method get-options(Getopt::Long:D: @args is copy, :%hash, :$auto-abbreviate = Fa
 			with %receivers{$key} -> $option {
 				return $option;
 			} elsif $key eq 'help' && $auto-help {
-				return Receiver.new(:store(ScalarStore.new(:key<help>)), :arity(0..0), :default);
+				return Receiver.new(:store(ScalarStore.new(:key<help>, :values(%hash))), :arity(0..0), :default);
 			} elsif $auto-abbreviate {
 				my @names = %receivers.keys.grep(*.starts-with($key));
 				if @names == 1 {
