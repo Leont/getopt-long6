@@ -1,6 +1,7 @@
 Revision history for Getopt-Long
 
 {{$NEXT}}
+    - Add basic usage generator to Getopt::Long
     - Make options and positionals public methods
     - Restore :auto-help option
 

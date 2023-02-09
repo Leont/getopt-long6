@@ -694,6 +694,90 @@ our sub ARGS-TO-CAPTURE(Sub $func, @args) is export(:DEFAULT, :MAIN) {
 	CATCH { when Exception { note .message; &*EXIT(2) } };
 }
 
+sub usage-name(@names) {
+	if @names == 1 and @names[0].chars == 1 {
+		return "-@names[0]";
+	} else {
+		return '--' ~ @names.join('|');
+	}
+}
+
+sub describe-type(Any:U $type) {
+	my $result = $type.^name;
+	if $type.HOW ~~ Metamodel::EnumHOW {
+		my $options = $type.^enum_values.keys.sort.Str;
+		$result ~= $options.chars > 50 ?? ' (' ~ substr($options,0,50) ~ '...' !! " ($options)"
+	}
+	return $result;
+}
+
+multi description-for-argument(Argument::Scalar $argument) {
+	with $argument.default {
+		return "[&describe-type($argument.type)]";
+	} else {
+		return describe-type($argument.type);
+	}
+}
+
+multi description-for-argument(Argument::Boolean $argument) {
+	return Str;
+}
+multi description-for-argument(Argument::Counter $argument) {
+	return Str;
+}
+
+multi description-for-argument(Argument::Array $argument) {
+	return describe-type($argument.type) ~ '...';
+}
+
+multi description-for-argument(Argument::Hash $argument) {
+	return "<key>=" ~ describe-type($argument.type) ~ '...';
+}
+
+sub usage-for-named(Option $option) {
+	my $name = usage-name($option.names.reverse);
+	my $description = description-for-argument($option.argument);
+
+	return $description.defined ?? "$name $description" !! $name;
+}
+
+multi describe-options(@options) {
+	if any(@options).why {
+		my @pairs = gather for @options -> $option {
+			my $lead = usage-for-named($option);
+			my $reason = $option.why // '';
+			take ($lead, $reason);
+		}
+		my $width = max(@pairs.map(*.[0].chars));
+
+		return @pairs.map: -> ($left, $right) { sprintf '%-*s %s', $width + 1, $left, $right };
+	} else {
+		return @options.map(&usage-for-named);
+	}
+}
+
+our sub generate-usage(&main, :$program-name = $*PROGRAM.basename) is export(:usage, :functions) {
+	my $getopt = Getopt::Long.new-from-sub(&main);
+	my @positionals = $getopt.positionals;
+	my @positional-descs = $getopt.positionals.map({ "<$^positional.name()>" });
+	@positional-descs.push: "<$getopt.slurpy()>..." with $getopt.slurpy;
+
+	my @options = $getopt.options;
+	my @option-descs = describe-options($getopt.options);
+
+	if $program-name.chars + @option-descs.join(' ').chars > 72 or any(@options).why {
+		my @lines = flat "Usage:", ('', $program-name, '[options...]', |@positional-descs).join(' '), '', @option-descs.map(*.indent(4));
+		return @lines.join("\n");
+	} else {
+		my @main = ('', $program-name, |@option-descs.map({ "[$^option]" }), |@positional-descs);
+		return "Usage:\n" ~ @main.join(' ');
+	}
+}
+
+our sub GENERATE-USAGE(&main, |capture) is export(:usage) {
+	return generate-usage(&main);
+}
+
 =begin pod
 
 =head1 NAME
