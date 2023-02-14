@@ -401,6 +401,12 @@ multi sub trait_mod:<is>(Parameter $param where $param.named, Code:D :option($co
 	return $param does Formatted::Named(:$argument);
 }
 
+multi sub trait_mod:<is>(Parameter $param where $param.named, :%option!) is export(:DEFAULT, :traits) {
+	%option<type> //= %option<default>.WHAT with %option<default>;
+	my $argument = %argument-for{$param.sigil}.new(|%option);
+	return $param does Formatted::Named(:$argument);
+}
+
 multi get-reason(Pod::Block::Declarator:D $declarator) {
 	return $declarator.trailing // $declarator.leading;
 }

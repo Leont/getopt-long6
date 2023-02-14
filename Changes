@@ -2,6 +2,7 @@ Revision history for Getopt-Long
 
 {{$NEXT}}
     - Add basic usage generator to Getopt::Long
+    - Add «Parameter is option(Hash)»
     - Make options and positionals public methods
     - Restore :auto-help option
 
