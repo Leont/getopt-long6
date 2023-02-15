@@ -394,9 +394,10 @@ multi sub trait_mod:<is>(Parameter $param where $param.named, Str:D :getopt(:$op
 	return $param does Formatted::Named(:$argument);
 }
 
-multi sub trait_mod:<is>(Parameter $param where $param.named, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
+multi sub trait_mod:<is>(Parameter $param where $param.named, Code:D :$option!) is export(:DEFAULT, :traits) {
 	my $element-type = $param.sigil eq '@'|'%' ?? $param.type.of !! $param.type;
 	my $type = $element-type ~~ Any ?? $element-type !! Any;
+	my $converter = sub ($value) { $option($value) orelse die ValueInvalid("Can't convert %s argument") };
 	my $argument = %argument-for{$param.sigil}.new(:$type, :$converter);
 	return $param does Formatted::Named(:$argument);
 }
@@ -426,7 +427,8 @@ multi sub trait_mod:<is>(Parameter $param where $param.positional, Str:D :$optio
 	my $argument = Ordered.new(:name($param.usage-name), :type(type-for-format($option)), :why(get-reason($param.WHY)));
 	return $param does Formatted::Positional($argument);
 }
-multi sub trait_mod:<is>(Parameter $param where $param.positional, Code:D :option($converter)!) is export(:DEFAULT, :traits) {
+multi sub trait_mod:<is>(Parameter $param where $param.positional, Code:D :$option!) is export(:DEFAULT, :traits) {
+	my $converter = sub ($value) { $option($value) orelse die ValueInvalid("Can't convert %s argument") };
 	my $argument = Ordered.new(:name($param.usage-name), :type($param.type), :$converter, :why(get-reason($param.WHY)));
 	return $param does Formatted::Positional($argument);
 }
